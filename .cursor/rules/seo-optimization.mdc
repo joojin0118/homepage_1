@@ -1,0 +1,44 @@
+---
+description: This rule describes how SEO is currently implemented in this project, covering metadata configuration, sitemap, robots.txt, and PWA support.
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+# SEO 최적화 가이드
+
+## 핵심 파일
+
+- [src/utils/seo/metadata.ts](mdc:src/utils/seo/metadata.ts) - 메타데이터 생성 유틸리티
+- [src/app/sitemap.ts](mdc:src/app/sitemap.ts) - 사이트맵 라우트
+- [src/app/robots.ts](mdc:src/app/robots.ts) - robots.txt 라우트
+- [src/app/manifest.ts](mdc:src/app/manifest.ts) - PWA 매니페스트
+
+## 메타데이터 설정
+
+### 페이지별 메타데이터
+
+각 페이지에서 `createMetadata` 함수를 사용하여 메타데이터를 설정합니다:
+
+```typescript
+// 페이지 메타데이터 설정 예시
+import { createMetadata } from "@/utils/seo/metadata";
+
+export const metadata = createMetadata({
+  title: "페이지 제목",
+  description: "페이지 설명",
+  noIndex: false, // 검색 엔진 색인 여부
+});
+```
+
+### 공통 메타데이터 구성
+
+공통 메타데이터 설정은 [src/utils/seo/metadata.ts](mdc:src/utils/seo/metadata.ts) 파일에서 확인할 수 있습니다.
+
+## 사이트맵 및 Robots.txt
+
+- **사이트맵**: [src/app/sitemap.ts](mdc:src/app/sitemap.ts) 파일에서 생성 로직을 확인할 수 있습니다.
+- **Robots.txt**: [src/app/robots.ts](mdc:src/app/robots.ts) 파일에서 검색 엔진 크롤링 설정을 확인할 수 있습니다.
+
+## PWA 설정
+
+- **Web Manifest**: [src/app/manifest.ts](mdc:src/app/manifest.ts) 파일에서 Progressive Web App 설정을 확인할 수 있습니다.
+- **아이콘**: [public/icons](mdc:public/icons) 디렉토리에 위치합니다.

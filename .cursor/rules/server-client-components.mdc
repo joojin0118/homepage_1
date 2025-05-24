@@ -1,0 +1,248 @@
+---
+description: This rule documents how this project handles the separation of server/client components, Supabase integration, and related errors and constraints based on actual implementation patterns.
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# 서버 컴포넌트와 클라이언트 컴포넌트
+
+Next.js 앱 라우터는 기본적으로 모든 컴포넌트를 서버 컴포넌트로 취급합니다. 클라이언트 측 기능이 필요한 경우에만 명시적으로 "use client" 지시문을 추가해야 합니다.
+
+## 서버 컴포넌트와 클라이언트 컴포넌트 구분
+
+### 서버 컴포넌트 특징
+- 파일 최상단에 "use server" 지시문이 필요
+- 서버에서만 실행됨
+- 클라이언트로 전송되지 않음 (번들 크기에 영향 없음)
+- 데이터베이스, 파일 시스템 등 서버 리소스에 직접 접근 가능
+- React 훅(useState, useEffect 등) 사용 불가능
+- 브라우저 API 사용 불가능
+
+### 클라이언트 컴포넌트 특징
+- 파일 최상단에 "use client" 지시문 필요
+- 브라우저에서 실행됨
+- 클라이언트로 JS 코드가 전송됨
+- React 훅(useState, useEffect 등) 사용 가능
+- 브라우저 API 접근 가능
+- 서버 리소스에 직접 접근 불가능
+
+## 잘못된 사용 예시와 해결책
+
+### 1. 서버 컴포넌트에서 React 훅 사용
+
+**잘못된 예시:**
+```tsx
+// app/incorrect-page.tsx
+export default function Page() {
+  const [count, setCount] = useState(0); // 오류: 서버 컴포넌트에서 훅 사용 불가
+
+  return <div>Count: {count}</div>;
+}
+```
+
+**해결책:**
+```tsx
+// app/correct-page.tsx
+"use server"
+
+import { ClientComponent } from '@/components/ClientComponent';
+
+export default function Page() {
+  return <ClientComponent />;
+}
+
+// components/ClientComponent.tsx
+"use client";
+
+import { useState } from 'react';
+
+export function ClientComponent() {
+  const [count, setCount] = useState(0);
+
+  return <div>Count: {count}</div>;
+}
+```
+
+### 2. 클라이언트 컴포넌트에서 서버 리소스 직접 접근
+
+**잘못된 예시:**
+```tsx
+// components/IncorrectComponent.tsx
+"use client";
+
+import { createServerSupabaseClient } from "@/utils/supabase/server";
+
+export function IncorrectComponent() {
+  // 오류: 클라이언트 컴포넌트에서 서버 전용 유틸리티 사용
+  const supabase = createServerSupabaseClient();
+
+  return <div>User data</div>;
+}
+```
+
+**해결책:**
+```tsx
+// app/page.tsx (서버 컴포넌트)
+"use server"
+
+import { createServerSupabaseClient } from "@/utils/supabase/server";
+import { ClientComponent } from '@/components/ClientComponent';
+
+export default async function Page() {
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase.from('some_table').select();
+
+  return <ClientComponent initialData={data} />;
+}
+
+// components/ClientComponent.tsx
+"use client";
+
+export function ClientComponent({ initialData }) {
+  return <div>User data: {JSON.stringify(initialData)}</div>;
+}
+```
+
+## Supabase 클라이언트 사용 가이드
+
+### 서버 컴포넌트에서 Supabase 클라이언트 사용
+
+서버 컴포넌트에서는 `createServerSupabaseClient()` 함수를 사용합니다:
+
+```tsx
+// app/profile/page.tsx
+"use server"
+
+import { createServerSupabaseClient } from "@/utils/supabase/server";
+
+export default async function ProfilePage() {
+  const supabase = await createServerSupabaseClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select()
+    .eq('id', user?.id)
+    .single();
+
+  return (
+    <div>
+      <h1>프로필</h1>
+      {profile ? (
+        <div>사용자 이름: {profile.username}</div>
+      ) : (
+        <div>프로필을 찾을 수 없습니다.</div>
+      )}
+    </div>
+  );
+}
+```
+
+### 클라이언트 컴포넌트에서 Supabase 클라이언트 사용
+
+클라이언트 컴포넌트에서는 `createBrowserSupabaseClient()` 함수를 사용합니다:
+
+```tsx
+// components/ProfileForm.tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { createBrowserSupabaseClient } from "@/utils/supabase/client";
+
+export function ProfileForm({ initialProfile }) {
+  const [profile, setProfile] = useState(initialProfile);
+  const [supabase] = useState(() => createBrowserSupabaseClient());
+
+  async function updateProfile() {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username: profile.username })
+      .eq('id', profile.id);
+
+    if (error) {
+      console.error("Error updating profile:", error);
+    }
+  }
+
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      updateProfile();
+    }}>
+      {/* 폼 내용 */}
+    </form>
+  );
+}
+```
+
+### 서버 액션에서 Supabase 클라이언트 사용
+
+서버 액션에서도 서버 Supabase 클라이언트를 사용합니다:
+
+```tsx
+// app/profile/actions.ts
+"use server";
+
+import { createServerSupabaseClient } from "@/utils/supabase/server";
+
+export async function updateProfile(formData: FormData) {
+  const supabase = await createServerSupabaseClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "인증되지 않은 사용자입니다." };
+  }
+
+  const username = formData.get("username") as string;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ username })
+    .eq('id', user.id);
+
+  if (error) {
+    return { error: "프로필 업데이트 중 오류가 발생했습니다." };
+  }
+
+  return { success: true };
+}
+```
+
+## 일반적인 오류와 해결책
+
+### 1. "React hooks can only be used in client components"
+
+- **원인**: 서버 컴포넌트에서 React 훅(useState, useEffect 등)을 사용했습니다.
+- **해결책**: 해당 컴포넌트를 클라이언트 컴포넌트로 변경하거나, 훅을 사용하는 로직을 별도의 클라이언트 컴포넌트로 분리하세요.
+
+### 2. "Functions cannot be passed directly to Client Components"
+
+- **원인**: 서버 컴포넌트에서 정의한 함수를 클라이언트 컴포넌트의 props로 전달했습니다.
+- **해결책**: "use server" 지시문을 사용하여 서버 액션으로 함수를 표시하거나, 클라이언트 컴포넌트 내에서 함수를 다시 정의하세요.
+
+### 3. "Cannot use Server Actions in Client Components that are not part of a Form or use startTransition"
+
+- **원인**: 클라이언트 컴포넌트에서 서버 액션을 잘못된 방식으로 호출했습니다.
+- **해결책**: 서버 액션을 `<form action={serverAction}>`으로 호출하거나, `startTransition`을 사용하세요.
+
+### 4. "Cannot call a function in a 'server' file from a 'client' file"
+
+- **원인**: 클라이언트 컴포넌트에서 서버 전용 유틸리티 함수를 직접 호출했습니다.
+- **해결책**: 서버 컴포넌트에서 필요한 데이터를 가져와 클라이언트 컴포넌트에 props로 전달하세요.
+
+## 모범 사례
+
+1. **컴포넌트 분리**:
+   - 데이터를 가져오는 로직은 서버 컴포넌트에 배치
+   - 상호작용 UI 요소는 클라이언트 컴포넌트에 배치
+
+2. **"use client" 지시문 위치**:
+   - 파일 최상단에 배치 (주석 위에도 가능)
+   - 불필요하게 많은 컴포넌트에 사용하지 않기
+
+3. **Supabase 클라이언트 인스턴스 재사용**:
+   - 불필요한 연결 생성 방지
+
+4. **타입 안전성 유지**:
+   - 서버와 클라이언트 간에 데이터를 전달할 때 명확한 타입 정의
+   - Zod 스키마를 사용하여 데이터 검증

@@ -1,0 +1,78 @@
+---
+description: This rule documents common errors, misconfigurations, and caveats encountered in this project, with solutions and preventive practices.
+globs:
+alwaysApply: true
+---
+
+# 일반적인 에러와 주의사항
+
+## 환경 변수 설정
+
+1. 필수 환경 변수가 제대로 설정되지 않으면 인증과 관련된 모든 기능이 작동하지 않습니다.
+   - `.env` 파일에 다음 값들이 반드시 설정되어야 합니다:
+    ```bash
+    NEXT_PUBLIC_SUPABASE_URL="https://project_id.supabase.co"
+    NEXT_PUBLIC_SUPABASE_ANON_KEY="your_supabase_anon_key"
+    NEXT_PUBLIC_STORAGE_BUCKET="your_storage_bucket_name"
+
+    NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+
+    SUPABASE_SERVICE_ROLE="your_supabase_service_role"
+    SUPABASE_DB_PASSWORD="your_supabase_db_password"
+    ```
+
+2. 환경 변수 타입 어설션 오류:
+   - Supabase 클라이언트 생성 시 `!` 연산자를 사용하여 타입 어설션을 하고 있습니다.
+   - 환경 변수가 없을 경우 런타임 오류가 발생할 수 있으므로 항상 환경 변수를 설정해야 합니다.
+
+## Supabase 인증 관련
+
+1. 로그인/회원가입 폼의 서버 액션 에러:
+   - `src/app/login/actions.ts`에서 로그인 및 회원가입 서버 액션은 Zod 스키마를 사용하여 유효성 검사를 수행합니다.
+   - 스키마 수정 시 관련 타입과 에러 메시지도 함께 업데이트해야 합니다.
+
+2. OAuth 리다이렉트 설정 누락:
+   - Supabase 프로젝트 설정에서 "Redirect URLs"에 `{SITE_URL}/auth/callback` 설정이 필요합니다.
+   - 설정되지 않으면 OAuth 로그인 후 "Invalid redirect URL" 에러가 발생합니다.
+
+3. 인증 콜백 핸들링:
+   - `src/app/auth/callback/route.ts`에서 인증 코드나 토큰 처리 로직을 수정할 때 주의가 필요합니다.
+   - 처리 순서를 변경하면 인증 흐름이 깨질 수 있습니다.
+
+## 미들웨어 및 라우트 보호
+
+1. 미들웨어 라우트 보호 설정:
+   - `src/utils/supabase/middleware.ts`에서 보호된 라우트를 정의할 때 정규식이나 경로 패턴을 정확히 설정해야 합니다.
+   - 잘못 설정하면 인증되지 않은 사용자가 보호된 페이지에 접근하거나, 인증된 사용자가 접근해야 할 페이지에 접근하지 못할 수 있습니다.
+
+2. 미들웨어 응답 처리:
+   - 미들웨어에서 `NextResponse.next()`와 `NextResponse.redirect()`의 사용에 주의해야 합니다.
+   - 중복 리다이렉트나 잘못된 응답 반환은 무한 리디렉션 루프를 일으킬 수 있습니다.
+
+## 서버 컴포넌트 vs 클라이언트 컴포넌트
+
+1. 컴포넌트 타입 혼동:
+   - 서버 컴포넌트에서는 `"use server"` 지시문을 사용하여 Supabase 서버 클라이언트를 사용해야 합니다.
+   - 클라이언트 컴포넌트에서는 `createBrowserSupabaseClient()`를 사용해야 합니다.
+   - 잘못 사용하면 "호출할 수 없는 함수" 또는 "React hooks must be called in a React function component" 에러가 발생합니다.
+
+2. 서버 액션 호출:
+   - 서버 액션을 클라이언트 컴포넌트에서 직접 호출할 때에는 `"use server"` 지시문이 포함된 함수만 호출해야 합니다.
+   - 잘못된 함수 호출은 "함수가 직렬화 불가능합니다" 에러를 발생시킵니다.
+
+## Next.js 앱 라우터
+
+1. 메타데이터 설정 오류:
+   - 레이아웃에서 정의된 메타데이터와 페이지에서 정의된 메타데이터가 충돌할 수 있습니다.
+   - `src/utils/seo/metadata.ts`에서 제공하는 유틸리티 함수를 사용하여 충돌을 피해야 합니다.
+
+2. 경로 구성 오류:
+   - `page.tsx` 파일은 경로의 루트 컴포넌트여야 합니다.
+   - `layout.tsx`와 `page.tsx`의 중첩 관계를 정확히 이해하고 사용해야 합니다.
+
+## 기타 주의사항
+
+1. supabase 로그인 기능은 따로 스키마를 만들지 않고 supabase auth 기능을 사용한다.
+2. Supabase 클라이언트 인스턴스 중복 생성:
+   - 성능 최적화를 위해 클라이언트 컴포넌트에서는 Supabase 클라이언트 인스턴스를 중복 생성하지 않도록 주의해야 합니다.
+   - 가능하면 Context API를 사용하여 단일 인스턴스를 공유하는 것이 좋습니다.

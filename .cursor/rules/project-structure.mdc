@@ -1,0 +1,54 @@
+---
+description: This rule documents how this project is structured using Next.js and Supabase, including routing, authentication, and file organization.
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+# Next.js + Supabase 보일러플레이트 구조
+
+## 핵심 파일
+
+- 애플리케이션 진입점: [src/app/layout.tsx](mdc:src/app/layout.tsx) - 루트 레이아웃 정의
+- 메인 페이지: [src/app/page.tsx](mdc:src/app/page.tsx) - 홈페이지
+- 인증 미들웨어: [src/middleware.ts](mdc:src/middleware.ts) - 라우트 보호 및 인증 처리
+- Supabase 클라이언트: [src/utils/supabase/client.ts](mdc:src/utils/supabase/client.ts) - 클라이언트 측 Supabase 인스턴스
+- 서버 컴포넌트용 Supabase: [src/utils/supabase/server.ts](mdc:src/utils/supabase/server.ts) - 서버 컴포넌트용 Supabase 인스턴스
+
+## 디렉토리 구조
+
+### App 라우터
+
+- [src/app](mdc:src/app) - Next.js 앱 라우터 디렉토리
+  - [src/app/auth](mdc:src/app/auth) - 인증 관련 라우트 (콜백, 에러 페이지)
+  - [src/app/login](mdc:src/app/login) - 로그인 페이지
+  - [src/app/profile](mdc:src/app/profile) - 사용자 프로필 페이지 (보호된 라우트)
+
+### 서버 액션
+
+- [src/actions](mdc:src/actions) - Next.js 서버 액션 디렉토리
+
+### 컴포넌트
+
+- [src/components](mdc:src/components) - 재사용 가능한 컴포넌트
+  - [src/components/auth](mdc:src/components/auth) - 인증 관련 컴포넌트
+  - [src/components/nav](mdc:src/components/nav) - 네비게이션 컴포넌트
+  - [src/components/seo](mdc:src/components/seo) - SEO 관련 컴포넌트
+  - [src/components/ui](mdc:src/components/ui) - UI 컴포넌트 (ShadcnUI)
+
+### 유틸리티
+
+- [src/utils](mdc:src/utils) - 유틸리티 함수
+  - [src/utils/seo](mdc:src/utils/seo) - SEO 관련 유틸리티
+  - [src/utils/supabase](mdc:src/utils/supabase) - Supabase 클라이언트 및 유틸리티
+
+### 기타
+
+- [src/hooks](mdc:src/hooks) - 커스텀 훅
+- [src/lib](mdc:src/lib) - 라이브러리 및 유틸리티
+
+## 주요 설정 파일
+
+- [next.config.ts](mdc:next.config.ts) - Next.js 설정
+- [.env.example](mdc:.env.example) - 환경 변수 예제
+- [.cursor/mcp.json](mdc:.cursor/mcp.json) - MCP(Model Context Protocol) 서버 설정
+- [components.json](mdc:components.json) - ShadcnUI 컴포넌트 설정
+- [tsconfig.json](mdc:tsconfig.json) - TypeScript 설정

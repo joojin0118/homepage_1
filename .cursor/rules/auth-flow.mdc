@@ -1,0 +1,39 @@
+---
+description: This rule describes how authentication is implemented in this project using Supabase, including routing, middleware, and client/server utilities.
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Supabase 인증 흐름
+
+## 핵심 컴포넌트
+
+- [src/middleware.ts](mdc:src/middleware.ts) - 인증 상태에 따른 라우트 보호
+- [src/utils/supabase/middleware.ts](mdc:src/utils/supabase/middleware.ts) - 미들웨어에서 사용되는 인증 유틸리티
+- [src/app/login/page.tsx](mdc:src/app/login/page.tsx) - 로그인 페이지
+- [src/app/auth/callback/route.ts](mdc:src/app/auth/callback/route.ts) - OAuth 콜백 처리
+- [src/app/auth/error/page.tsx](mdc:src/app/auth/error/page.tsx) - 인증 에러 페이지
+
+## 인증 흐름
+
+1. **로그인/회원가입**: [src/app/login/page.tsx](mdc:src/app/login/page.tsx)에서 시작
+   - 이메일/비밀번호 로그인
+   - OAuth 제공업체를 통한 소셜 로그인
+
+2. **OAuth 콜백**: [src/app/auth/callback/route.ts](mdc:src/app/auth/callback/route.ts)
+   - 소셜 로그인 성공 후 콜백 처리
+   - 사용자 세션 생성 및 리다이렉트
+
+3. **세션 검증**: [src/middleware.ts](mdc:src/middleware.ts)
+   - 모든 요청에서 세션 상태 확인
+   - 인증이 필요한 라우트 보호
+
+4. **사용자 데이터 접근**:
+   - 클라이언트 측: [src/utils/supabase/client.ts](mdc:src/utils/supabase/client.ts)
+   - 서버 측: [src/utils/supabase/server.ts](mdc:src/utils/supabase/server.ts)
+
+## 주요 유틸리티 함수
+
+- `createClient()`: Supabase 클라이언트 인스턴스 생성
+- `createServerClient()`: 서버 컴포넌트에서 사용할 Supabase 클라이언트 생성
+- `createServerActionClient()`: 서버 액션에서 사용할 Supabase 클라이언트 생성
