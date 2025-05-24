@@ -1,0 +1,178 @@
+---
+description: 데이터 베이스를 사용할 때 이 룰을 참고할 것
+globs: 
+alwaysApply: false
+---
+# 데이터베이스 스키마 가이드
+
+이 프로젝트는 Supabase PostgreSQL 데이터베이스를 사용하며, TypeScript 타입 정의는 [database.types.ts](mdc:database.types.ts)에서 관리됩니다.
+
+## 핵심 테이블 구조
+
+### 사용자 관리
+- **profiles**: 사용자 프로필 정보
+  - `id`: string (Supabase Auth User ID와 연결)
+  - `name`: string | null (사용자 이름)
+  - `is_admin`: boolean | null (관리자 권한)
+  - `created_at`: string | null (생성일시)
+
+### 상품 관리
+- **products**: 상품 정보
+  - `id`: number (기본키, 자동증가)
+  - `name`: string (상품명, 필수)
+  - `description`: string | null (상품 설명)
+  - `price`: number (가격, 필수)
+  - `stock_quantity`: number (재고 수량, 기본값 0)
+  - `image_url`: string | null (상품 이미지 URL)
+  - `created_by`: string | null (생성자 ID, profiles.id 참조)
+
+### 주문 관리
+- **orders**: 주문 정보
+  - `id`: number (기본키, 자동증가)
+  - `user_id`: string (주문자 ID, profiles.id 참조, 필수)
+  - `total_amount`: number (총 주문 금액, 필수)
+  - `status`: string (주문 상태, 필수)
+  - `created_at`: string | null (주문일시)
+
+- **order_items**: 주문 상품 상세
+  - `id`: number (기본키, 자동증가)
+  - `order_id`: number (주문 ID, orders.id 참조, 필수)
+  - `product_id`: number (상품 ID, products.id 참조, 필수)
+  - `quantity`: number (수량, 필수)
+  - `price_at_time`: number (주문 시점 가격, 필수)
+
+### 장바구니 관리
+- **cart_items**: 장바구니 아이템
+  - `id`: number (기본키, 자동증가)
+  - `user_id`: string | null (사용자 ID, profiles.id 참조)
+  - `product_id`: number | null (상품 ID, products.id 참조)
+  - `quantity`: number | null (수량)
+
+## 테이블 관계
+
+```
+profiles (사용자)
+├── products (생성한 상품) - created_by
+├── orders (주문) - user_id
+└── cart_items (장바구니) - user_id
+
+products (상품)
+├── cart_items (장바구니에 담긴 상품) - product_id
+└── order_items (주문된 상품) - product_id
+
+orders (주문)
+└── order_items (주문 상세) - order_id
+```
+
+## TypeScript 타입 사용법
+
+### 기본 타입 사용
+```typescript
+import { Tables, TablesInsert, TablesUpdate } from './database.types';
+
+// 테이블 Row 타입 (SELECT 결과)
+type Product = Tables<'products'>;
+type Profile = Tables<'profiles'>;
+type Order = Tables<'orders'>;
+
+// INSERT 타입
+type ProductInsert = TablesInsert<'products'>;
+type OrderInsert = TablesInsert<'orders'>;
+
+// UPDATE 타입
+type ProductUpdate = TablesUpdate<'products'>;
+type ProfileUpdate = TablesUpdate<'profiles'>;
+```
+
+### Supabase 클라이언트와 함께 사용
+```typescript
+import { createServerSupabaseClient } from '@/utils/supabase/server';
+import { Tables } from './database.types';
+
+// 상품 조회
+const { data: products } = await supabase
+  .from('products')
+  .select('*')
+  .returns<Tables<'products'>[]>();
+
+// 주문과 주문 상품 조회 (JOIN)
+const { data: orderWithItems } = await supabase
+  .from('orders')
+  .select(`
+    *,
+    order_items (
+      *,
+      products (name, price)
+    )
+  `)
+  .eq('user_id', userId);
+```
+
+## 데이터베이스 제약사항
+
+### 필수 필드
+- **products**: `name`, `price`
+- **orders**: `user_id`, `total_amount`, `status`
+- **order_items**: `order_id`, `product_id`, `quantity`, `price_at_time`
+- **profiles**: `id`
+
+### 외래키 제약
+- `products.created_by` → `profiles.id`
+- `orders.user_id` → `profiles.id`
+- `cart_items.user_id` → `profiles.id`
+- `cart_items.product_id` → `products.id`
+- `order_items.order_id` → `orders.id`
+- `order_items.product_id` → `products.id`
+
+## 일반적인 쿼리 패턴
+
+### 사용자별 장바구니 조회
+```typescript
+const { data: cartItems } = await supabase
+  .from('cart_items')
+  .select(`
+    *,
+    products (
+      id,
+      name,
+      price,
+      image_url,
+      stock_quantity
+    )
+  `)
+  .eq('user_id', userId)
+  .not('products', 'is', null);
+```
+
+### 주문 히스토리 조회
+```typescript
+const { data: orders } = await supabase
+  .from('orders')
+  .select(`
+    *,
+    order_items (
+      *,
+      products (name, image_url)
+    )
+  `)
+  .eq('user_id', userId)
+  .order('created_at', { ascending: false });
+```
+
+### 상품 재고 확인
+```typescript
+const { data: product } = await supabase
+  .from('products')
+  .select('stock_quantity')
+  .eq('id', productId)
+  .single();
+```
+
+## 주의사항
+
+1. **profiles.id는 Supabase Auth의 user.id와 일치해야 합니다**
+2. **order_items.price_at_time은 주문 시점의 가격을 저장하여 가격 변동에 대응합니다**
+3. **재고 관리 시 products.stock_quantity를 확인해야 합니다**
+4. **모든 INSERT/UPDATE 작업에서 해당 타입을 사용하여 타입 안전성을 보장하세요**
+5. **삭제 작업 시 외래키 제약으로 인한 종속성을 고려해야 합니다**
+
