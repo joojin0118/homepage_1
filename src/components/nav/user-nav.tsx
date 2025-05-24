@@ -64,6 +64,15 @@ export default function UserNav() {
               className="px-2 py-1.5 w-full justify-start h-8 font-normal"
               asChild
             >
+              <Link href="/orders">주문 내역</Link>
+            </Button>
+          </DropdownMenuItem>
+          <DropdownMenuItem className="p-0 focus:bg-transparent">
+            <Button
+              variant="ghost"
+              className="px-2 py-1.5 w-full justify-start h-8 font-normal"
+              asChild
+            >
               <Link href="/profile">프로필</Link>
             </Button>
           </DropdownMenuItem>
