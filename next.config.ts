@@ -27,6 +27,12 @@ const nextConfig: NextConfig = {
         // Supabase Storage 경로 패턴 (필요시 더 세분화 가능)
         pathname: "/storage/v1/object/public/**",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        // Unsplash 이미지 허용
+        pathname: "/**",
+      },
     ],
   },
 };

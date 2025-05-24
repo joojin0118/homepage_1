@@ -9,18 +9,21 @@
  * 1. 사용자 인증 상태에 따른 정보 표시
  * 2. 사용자 프로필 드롭다운 메뉴 통합
  * 3. 테마 전환 기능 제공
- * 4. 미디어 쿼리를 통한 반응형 표시
+ * 4. 장바구니 아이콘 표시
+ * 5. 미디어 쿼리를 통한 반응형 표시
  *
  * 구현 로직:
  * - md 이상 화면 크기에서만 표시되도록 설계
  * - 사용자 인증 상태에 따른 조건부 렌더링
  * - 사용자 이메일에서 ID 부분 추출하여 표시
  * - UserNav 컴포넌트를 통한 사용자 드롭다운 메뉴 통합
+ * - CartIcon 컴포넌트를 통한 장바구니 접근
  * - ThemeToggle 컴포넌트를 통한 테마 전환 기능 제공
  * - useAuth 훅을 통한 인증 상태 접근
  *
  * @dependencies
  * - ./user-nav (사용자 네비게이션 컴포넌트)
+ * - ./cart-icon (장바구니 아이콘 컴포넌트)
  * - @/components/ui/theme-toggle (테마 전환 컴포넌트)
  * - @/components/auth/auth-provider (인증 컨텍스트)
  */
@@ -28,6 +31,7 @@
 "use client";
 
 import UserNav from "./user-nav";
+import { CartIcon } from "./cart-icon";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/components/auth/auth-provider";
 
@@ -43,6 +47,9 @@ export default function DesktopMenu() {
         </div>
       )}
 
+      {/* 장바구니 아이콘 - 인증 여부와 관계없이 표시 */}
+      <CartIcon />
+      
       <UserNav />
       <ThemeToggle />
     </div>

@@ -40,6 +40,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/utils/seo/constants";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { QueryProvider } from "@/components/providers/query-client-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -151,14 +152,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>{children}</AuthProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <AuthProvider>{children}</AuthProvider>
+          </ThemeProvider>
+        </QueryProvider>
         <Analytics />
         <WebsiteJsonLd />
         <OrganizationJsonLd />
