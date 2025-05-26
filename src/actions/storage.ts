@@ -48,8 +48,8 @@ export async function uploadFile(formData: FormData) {
       return { error: validationResult.error.message };
     }
 
-    // 파일명 중복 방지: timestamp + 랜덤값
-    const ext = file.name.split(".").pop();
+    // 파일명 중복 방지: timestamp + 랜덤값 + 안전한 확장자
+    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const { error } = await supabase.storage

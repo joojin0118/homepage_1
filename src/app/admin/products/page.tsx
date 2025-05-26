@@ -18,7 +18,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getProducts, deleteProduct } from "@/actions/products";
 import type { Product } from "@/actions/products";
@@ -147,7 +147,7 @@ function StockBadge({ stock }: { stock: number }) {
 }
 
 // 관리자 상품 관리 페이지
-export default function AdminProductsPage() {
+function AdminProductsPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
@@ -247,15 +247,11 @@ export default function AdminProductsPage() {
       setIsDeleting(true);
       console.log("🗑️ 상품 삭제:", deleteProductId);
 
-      const result = await deleteProduct(deleteProductId);
+      await deleteProduct(deleteProductId);
+      await fetchProducts(); // 목록 새로고침
 
-      if (result.success) {
-        await fetchProducts(); // 목록 새로고침
-        setDeleteProductId(null);
-        console.log("✅ 상품 삭제 완료");
-      } else {
-        setError(result.message);
-      }
+      console.log("✅ 상품 삭제 완료");
+      setDeleteProductId(null);
     } catch (error) {
       console.error("상품 삭제 실패:", error);
       const errorMessage =
@@ -311,7 +307,7 @@ export default function AdminProductsPage() {
   }
 
   // 에러 상태
-  if (error) {
+  if (error && !products.length) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
@@ -385,7 +381,6 @@ export default function AdminProductsPage() {
                   size="sm"
                   onClick={() => handleFilterChange("all")}
                 >
-                  <Filter className="h-4 w-4 mr-2" />
                   전체
                 </Button>
                 <Button
@@ -393,7 +388,7 @@ export default function AdminProductsPage() {
                   size="sm"
                   onClick={() => handleFilterChange("low_stock")}
                 >
-                  <AlertCircle className="h-4 w-4 mr-2" />
+                  <Filter className="h-4 w-4 mr-2" />
                   재고 부족
                 </Button>
                 <Link href="/admin/products/new">
@@ -404,6 +399,18 @@ export default function AdminProductsPage() {
                 </Link>
               </div>
             </div>
+
+            {/* 에러 메시지 (부분 에러) */}
+            {error && products.length > 0 && (
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>{error}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 상품 테이블 */}
             {products.length === 0 ? (
@@ -598,5 +605,35 @@ export default function AdminProductsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// 서버 컴포넌트 래퍼 (Suspense로 감싸기)
+export default function AdminProductsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col bg-background">
+          <Navbar />
+          <main className="flex-grow">
+            <div className="container mx-auto px-4 py-8">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10" />
+                  <Skeleton className="h-8 w-32" />
+                </div>
+                <div className="flex gap-4">
+                  <Skeleton className="h-10 flex-1" />
+                  <Skeleton className="h-10 w-32" />
+                </div>
+                <ProductTableSkeleton />
+              </div>
+            </div>
+          </main>
+        </div>
+      }
+    >
+      <AdminProductsPageClient />
+    </Suspense>
   );
 }

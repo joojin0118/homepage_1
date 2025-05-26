@@ -84,7 +84,7 @@ function OrderStatusBadge({ status }: { status: string }) {
     },
     delivered: {
       label: "배송 완료",
-      variant: "success" as const,
+      variant: "secondary" as const,
       icon: Package,
     },
     cancelled: {

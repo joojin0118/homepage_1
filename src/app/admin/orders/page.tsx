@@ -18,7 +18,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getOrdersForAdmin, updateOrderStatus } from "@/actions/orders";
 import type { OrderWithItems } from "@/actions/orders";
@@ -172,7 +172,7 @@ function OrderStatusBadge({ status }: { status: string }) {
     },
     delivered: {
       label: "배송 완료",
-      variant: "success" as const,
+      variant: "secondary" as const,
       icon: Package,
     },
     cancelled: {
@@ -304,7 +304,7 @@ function OrderDetailDialog({
 }
 
 // 관리자 주문 관리 페이지
-export default function AdminOrdersPage() {
+function AdminOrdersPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
@@ -739,5 +739,35 @@ export default function AdminOrdersPage() {
         onClose={() => setSelectedOrder(null)}
       />
     </div>
+  );
+}
+
+// 서버 컴포넌트 래퍼 (Suspense로 감싸기)
+export default function AdminOrdersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col bg-background">
+          <Navbar />
+          <main className="flex-grow">
+            <div className="container mx-auto px-4 py-8">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10" />
+                  <Skeleton className="h-8 w-32" />
+                </div>
+                <div className="flex gap-4">
+                  <Skeleton className="h-10 flex-1" />
+                  <Skeleton className="h-10 w-32" />
+                </div>
+                <OrderTableSkeleton />
+              </div>
+            </div>
+          </main>
+        </div>
+      }
+    >
+      <AdminOrdersPageClient />
+    </Suspense>
   );
 }

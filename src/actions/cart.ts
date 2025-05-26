@@ -54,13 +54,16 @@ export type CartSummary = {
  */
 export async function getCartItems(): Promise<CartSummary> {
   console.group("🛒 장바구니 목록 조회");
-  
+
   try {
     const supabase = await createServerSupabaseClient();
-    
+
     // 현재 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
       console.error("인증 실패:", authError);
       console.groupEnd();
@@ -72,7 +75,8 @@ export async function getCartItems(): Promise<CartSummary> {
     // 장바구니 아이템과 상품 정보 함께 조회
     const { data: cartItems, error } = await supabase
       .from("cart_items")
-      .select(`
+      .select(
+        `
         id,
         user_id,
         product_id,
@@ -85,7 +89,8 @@ export async function getCartItems(): Promise<CartSummary> {
           image_url,
           stock_quantity
         )
-      `)
+      `,
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -95,16 +100,34 @@ export async function getCartItems(): Promise<CartSummary> {
       throw new Error("장바구니 조회 중 오류가 발생했습니다");
     }
 
-    // 타입 가드를 통한 데이터 검증
-    const validCartItems = cartItems?.filter((item): item is CartItem => {
-      return item.product !== null && typeof item.product === 'object';
-    }) || [];
+    // 타입 안전한 데이터 변환
+    const validCartItems: CartItem[] =
+      cartItems
+        ?.filter((item) => {
+          // product가 존재하고 객체이며 배열이 아닌지 확인
+          const product = Array.isArray(item.product)
+            ? item.product[0]
+            : item.product;
+          return product !== null && typeof product === "object";
+        })
+        .map((item) => {
+          // product가 배열인 경우 첫 번째 요소를 사용 (조인 결과에서 단일 객체인 경우)
+          const product = Array.isArray(item.product)
+            ? item.product[0]
+            : item.product;
+          return {
+            ...item,
+            product: product as CartItem["product"],
+          };
+        }) || [];
 
     // 총 아이템 수와 총액 계산
-    const totalItems = validCartItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalItems = validCartItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
     const totalAmount = validCartItems.reduce((sum, item) => {
-      const product = item.product as NonNullable<CartItem['product']>;
-      return sum + (product.price * item.quantity);
+      return sum + item.product.price * item.quantity;
     }, 0);
 
     const result = {
@@ -143,10 +166,13 @@ export async function addToCart(productId: number, quantity: number = 1) {
     });
 
     const supabase = await createServerSupabaseClient();
-    
+
     // 현재 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
       console.error("인증 실패:", authError);
       console.groupEnd();
@@ -195,7 +221,7 @@ export async function addToCart(productId: number, quantity: number = 1) {
     if (existingItem) {
       // 기존 아이템이 있으면 수량 업데이트
       const newQuantity = existingItem.quantity + validatedData.quantity;
-      
+
       // 재고 재확인
       if (newQuantity > product.stock_quantity) {
         console.error("총 수량이 재고를 초과:", {
@@ -205,7 +231,9 @@ export async function addToCart(productId: number, quantity: number = 1) {
           재고수량: product.stock_quantity,
         });
         console.groupEnd();
-        throw new Error(`재고가 부족합니다. 현재 재고: ${product.stock_quantity}개`);
+        throw new Error(
+          `재고가 부족합니다. 현재 재고: ${product.stock_quantity}개`,
+        );
       }
 
       const { data: updateData, error: updateError } = await supabase
@@ -263,11 +291,11 @@ export async function addToCart(productId: number, quantity: number = 1) {
   } catch (error) {
     console.error("장바구니 추가 오류:", error);
     console.groupEnd();
-    
+
     if (error instanceof z.ZodError) {
       throw new Error("입력값이 올바르지 않습니다");
     }
-    
+
     throw error;
   }
 }
@@ -275,7 +303,10 @@ export async function addToCart(productId: number, quantity: number = 1) {
 /**
  * 장바구니 아이템 수량 변경
  */
-export async function updateCartItemQuantity(cartItemId: number, quantity: number) {
+export async function updateCartItemQuantity(
+  cartItemId: number,
+  quantity: number,
+) {
   console.group("🛒 장바구니 수량 변경");
   console.log("카트 아이템 ID:", cartItemId, "새 수량:", quantity);
 
@@ -286,10 +317,13 @@ export async function updateCartItemQuantity(cartItemId: number, quantity: numbe
     }
 
     const supabase = await createServerSupabaseClient();
-    
+
     // 현재 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
       console.error("인증 실패:", authError);
       console.groupEnd();
@@ -299,13 +333,15 @@ export async function updateCartItemQuantity(cartItemId: number, quantity: numbe
     // 장바구니 아이템과 상품 정보 확인
     const { data: cartItem, error: cartError } = await supabase
       .from("cart_items")
-      .select(`
+      .select(
+        `
         id,
         user_id,
         product_id,
         quantity,
         product:products(stock_quantity, name)
-      `)
+      `,
+      )
       .eq("id", cartItemId)
       .eq("user_id", user.id)
       .single();
@@ -316,7 +352,12 @@ export async function updateCartItemQuantity(cartItemId: number, quantity: numbe
       throw new Error("장바구니 아이템을 찾을 수 없습니다");
     }
 
-    const product = cartItem.product as { stock_quantity: number; name: string };
+    const product = Array.isArray(cartItem.product)
+      ? cartItem.product[0]
+      : cartItem.product;
+    if (!product) {
+      throw new Error("상품 정보를 찾을 수 없습니다");
+    }
 
     // 재고 확인
     if (quantity > product.stock_quantity) {
@@ -325,7 +366,9 @@ export async function updateCartItemQuantity(cartItemId: number, quantity: numbe
         재고수량: product.stock_quantity,
       });
       console.groupEnd();
-      throw new Error(`재고가 부족합니다. 현재 재고: ${product.stock_quantity}개`);
+      throw new Error(
+        `재고가 부족합니다. 현재 재고: ${product.stock_quantity}개`,
+      );
     }
 
     // 수량 업데이트
@@ -373,10 +416,13 @@ export async function removeFromCart(cartItemId: number) {
 
   try {
     const supabase = await createServerSupabaseClient();
-    
+
     // 현재 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
       console.error("인증 실패:", authError);
       console.groupEnd();
@@ -386,9 +432,11 @@ export async function removeFromCart(cartItemId: number) {
     // 삭제 전 아이템 정보 조회 (로깅용)
     const { data: cartItem } = await supabase
       .from("cart_items")
-      .select(`
+      .select(
+        `
         product:products(name)
-      `)
+      `,
+      )
       .eq("id", cartItemId)
       .eq("user_id", user.id)
       .single();
@@ -406,8 +454,16 @@ export async function removeFromCart(cartItemId: number) {
       throw new Error("아이템 삭제 중 오류가 발생했습니다");
     }
 
-    const productName = cartItem?.product ? 
-      (cartItem.product as { name: string }).name : "상품";
+    // 안전한 상품 이름 추출
+    let productName = "상품";
+    if (cartItem?.product) {
+      const product = Array.isArray(cartItem.product)
+        ? cartItem.product[0]
+        : cartItem.product;
+      if (product && typeof product === "object" && "name" in product) {
+        productName = (product as { name: string }).name;
+      }
+    }
 
     console.log("아이템 삭제 완료:", productName);
     console.groupEnd();
@@ -434,10 +490,13 @@ export async function clearCart() {
 
   try {
     const supabase = await createServerSupabaseClient();
-    
+
     // 현재 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
       console.error("인증 실패:", authError);
       console.groupEnd();
@@ -471,4 +530,4 @@ export async function clearCart() {
     console.groupEnd();
     throw error;
   }
-} 
+}

@@ -18,30 +18,29 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { getOrders } from "@/actions/orders";
-import type { OrderWithItems } from "@/actions/orders";
-import { Navbar } from "@/components/nav/navbar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ShoppingBag,
-  Package,
-  Truck,
-  Eye,
-  ArrowLeft,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Home,
-} from "lucide-react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-provider";
+import { getOrders, type OrderWithItems } from "@/actions/orders";
+import { formatPrice } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Navbar } from "@/components/nav/navbar";
+import {
+  Clock,
+  CheckCircle2,
+  Truck,
+  Package,
+  AlertCircle,
+  Eye,
+  Filter,
+  ShoppingBag,
+  Home,
+} from "lucide-react";
 
 // 주문 상태 설정
 const ORDER_STATUSES = [
@@ -73,7 +72,7 @@ function OrderStatusBadge({ status }: { status: string }) {
     },
     delivered: {
       label: "배송 완료",
-      variant: "success" as const,
+      variant: "secondary" as const,
       icon: Package,
     },
     cancelled: {
@@ -242,7 +241,7 @@ function OrderListSkeleton() {
 }
 
 // 주문 내역 페이지 컴포넌트
-export default function OrdersPage() {
+function OrdersPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
@@ -395,8 +394,8 @@ export default function OrdersPage() {
             <div className="flex items-center gap-4">
               <Link href="/">
                 <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  홈으로
+                  <Filter className="h-4 w-4 mr-2" />
+                  필터
                 </Button>
               </Link>
               <div className="flex items-center gap-2">
@@ -511,5 +510,14 @@ export default function OrdersPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// 서버 컴포넌트 래퍼 (Suspense로 감싸기)
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<OrderListSkeleton />}>
+      <OrdersPageClient />
+    </Suspense>
   );
 }

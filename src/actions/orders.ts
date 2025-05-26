@@ -413,7 +413,16 @@ export async function getOrders(page: number = 1, limit: number = 10) {
     }
 
     const result = {
-      orders: orders as OrderWithItems[],
+      orders:
+        (orders?.map((order) => ({
+          ...order,
+          order_items: order.order_items?.map((item) => ({
+            ...item,
+            product: Array.isArray(item.product)
+              ? item.product[0]
+              : item.product,
+          })),
+        })) as OrderWithItems[]) || [],
       totalCount: count || 0,
       currentPage: page,
       totalPages: Math.ceil((count || 0) / limit),
@@ -493,7 +502,16 @@ export async function getOrder(orderId: number) {
     console.log("주문 상세 조회 완료:", order.id);
     console.groupEnd();
 
-    return order as OrderWithItems;
+    // 안전한 타입 변환
+    const transformedOrder = {
+      ...order,
+      order_items: order.order_items?.map((item) => ({
+        ...item,
+        product: Array.isArray(item.product) ? item.product[0] : item.product,
+      })),
+    };
+
+    return transformedOrder as OrderWithItems;
   } catch (error) {
     console.error("주문 상세 조회 오류:", error);
     console.groupEnd();
@@ -585,9 +603,21 @@ export async function getOrdersForAdmin(page: number = 1, limit: number = 20) {
     }
 
     const result = {
-      orders: orders as (OrderWithItems & {
-        profiles: { name: string | null } | null;
-      })[],
+      orders:
+        (orders?.map((order) => ({
+          ...order,
+          profiles: Array.isArray(order.profiles)
+            ? order.profiles[0]
+            : order.profiles,
+          order_items: order.order_items?.map((item) => ({
+            ...item,
+            product: Array.isArray(item.product)
+              ? item.product[0]
+              : item.product,
+          })),
+        })) as (OrderWithItems & {
+          profiles: { name: string | null } | null;
+        })[]) || [],
       totalCount: count || 0,
       currentPage: page,
       totalPages: Math.ceil((count || 0) / limit),

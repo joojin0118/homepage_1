@@ -21,7 +21,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCartItems } from "@/hooks/use-cart";
 import { createOrder } from "@/actions/orders";
@@ -41,7 +41,6 @@ import {
   CreditCard,
   AlertCircle,
   CheckCircle2,
-  User,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -118,7 +117,7 @@ function CheckoutSkeleton() {
 }
 
 // 주문서 작성 페이지 컴포넌트
-export default function CheckoutPage() {
+function CheckoutPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoading: authLoading } = useAuth();
@@ -309,15 +308,14 @@ export default function CheckoutPage() {
             </div>
           )}
         </div>
-        <div className="flex-grow min-w-0">
-          <h4 className="font-medium text-sm truncate">{item.product_name}</h4>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-sm text-gray-600">
-              {formatPrice(item.price)}원 × {item.quantity}
-            </span>
-            <span className="font-medium text-sm">
-              {formatPrice(item.total)}원
-            </span>
+        <div className="flex-grow">
+          <h4 className="font-medium text-gray-900">{item.product_name}</h4>
+          <div className="text-sm text-gray-600">
+            <p>수량: {item.quantity}개</p>
+            <p>단가: {formatPrice(item.price)}원</p>
+            <p className="font-medium text-gray-900">
+              소계: {formatPrice(item.total)}원
+            </p>
           </div>
         </div>
       </div>
@@ -328,46 +326,41 @@ export default function CheckoutPage() {
   const renderCartItems = () => {
     if (!cartData) return null;
 
-    return cartData.items.map((item) => {
-      const product = item.product as NonNullable<typeof item.product>;
-      return (
-        <div key={item.id} className="flex gap-3">
-          <div className="relative h-16 w-16 bg-gray-100 rounded-lg overflow-hidden">
-            {product.image_url ? (
-              <Image
-                src={product.image_url}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="64px"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="h-6 w-6 text-gray-400" />
-              </div>
-            )}
-          </div>
-          <div className="flex-grow min-w-0">
-            <h4 className="font-medium text-sm truncate">{product.name}</h4>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-sm text-gray-600">
-                {formatPrice(product.price)}원 × {item.quantity}
-              </span>
-              <span className="font-medium text-sm">
-                {formatPrice(product.price * item.quantity)}원
-              </span>
+    return cartData.items.map((item) => (
+      <div key={item.id} className="flex gap-3">
+        <div className="relative h-16 w-16 bg-gray-100 rounded-lg overflow-hidden">
+          {item.product.image_url ? (
+            <Image
+              src={item.product.image_url}
+              alt={item.product.name}
+              fill
+              className="object-cover"
+              sizes="64px"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Package className="h-6 w-6 text-gray-400" />
             </div>
+          )}
+        </div>
+        <div className="flex-grow">
+          <h4 className="font-medium text-gray-900">{item.product.name}</h4>
+          <div className="text-sm text-gray-600">
+            <p>수량: {item.quantity}개</p>
+            <p>단가: {formatPrice(item.product.price)}원</p>
+            <p className="font-medium text-gray-900">
+              소계: {formatPrice(item.product.price * item.quantity)}원
+            </p>
           </div>
         </div>
-      );
-    });
+      </div>
+    ));
   };
 
+  // 총 금액 계산
   const totalAmount = isDirectMode
     ? directPurchaseData!.total_amount
     : cartData!.totalAmount;
-  const backLink = isDirectMode ? "/" : "/cart";
-  const backText = isDirectMode ? "상품으로 돌아가기" : "장바구니로 돌아가기";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -378,17 +371,17 @@ export default function CheckoutPage() {
         <div className="border-b bg-white">
           <div className="container mx-auto px-4 py-6">
             <div className="flex items-center gap-4">
-              <Link href={backLink}>
+              <Link href={isDirectMode ? "/" : "/cart"}>
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  {backText}
+                  {isDirectMode ? "상품으로" : "장바구니로"}
                 </Button>
               </Link>
               <div className="flex items-center gap-2">
                 <CreditCard className="h-6 w-6" />
                 <h1 className="text-2xl font-bold">주문서 작성</h1>
                 {isDirectMode && (
-                  <Badge variant="outline" className="ml-2">
+                  <Badge variant="secondary" className="ml-2">
                     바로 구매
                   </Badge>
                 )}
@@ -399,140 +392,146 @@ export default function CheckoutPage() {
 
         {/* 주문서 내용 */}
         <div className="container mx-auto px-4 py-8">
-          <form
-            action={handleSubmit}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-8"
-          >
-            {/* 주문자 정보 입력 */}
-            <div className="lg:col-span-2 space-y-6">
+          <form action={handleSubmit}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* 주문자 정보 */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    주문자 정보
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <div className="lg:col-span-2 space-y-6">
+                {/* 에러 메시지 */}
+                {formError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <AlertCircle className="h-5 w-5" />
+                      <span>{formError}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="customerName">이름 *</Label>
                     <Input
                       id="customerName"
                       name="customerName"
-                      placeholder="주문자 이름을 입력해주세요"
+                      type="text"
+                      placeholder="홍길동"
                       required
-                      disabled={isSubmitting}
+                      className="w-full"
                     />
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="customerPhone">연락처 *</Label>
                     <Input
                       id="customerPhone"
                       name="customerPhone"
                       type="tel"
-                      placeholder="연락 가능한 전화번호를 입력해주세요"
+                      placeholder="010-1234-5678"
                       required
-                      disabled={isSubmitting}
+                      className="w-full"
                     />
                   </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="customerAddress">배송 주소 *</Label>
-                    <Textarea
-                      id="customerAddress"
-                      name="customerAddress"
-                      placeholder="상세한 배송 주소를 입력해주세요"
-                      required
+                <div className="space-y-2">
+                  <Label htmlFor="customerAddress">배송 주소 *</Label>
+                  <Textarea
+                    id="customerAddress"
+                    name="customerAddress"
+                    placeholder="서울특별시 강남구 테헤란로 123 (역삼동)&#10;456빌딩 7층"
+                    required
+                    className="w-full min-h-[100px]"
+                  />
+                </div>
+              </div>
+
+              {/* 주문 요약 */}
+              <div className="lg:col-span-1">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5" />
+                      주문 요약
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* 주문 상품 목록 */}
+                    <div className="space-y-3">
+                      {isDirectMode
+                        ? renderDirectPurchaseItems()
+                        : renderCartItems()}
+                    </div>
+
+                    <Separator />
+
+                    {/* 결제 정보 */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>상품 총액</span>
+                        <span>{formatPrice(totalAmount)}원</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>배송비</span>
+                        <span className="text-green-600">무료</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>총 결제금액</span>
+                        <span className="text-orange-600">
+                          {formatPrice(totalAmount)}원
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 주문 완료 버튼 */}
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      size="lg"
                       disabled={isSubmitting}
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                    >
+                      {isSubmitting ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          주문 처리 중...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5" />
+                          {formatPrice(totalAmount)}원 결제하기
+                        </div>
+                      )}
+                    </Button>
 
-              {/* 에러 메시지 */}
-              {formError && (
-                <Card className="border-red-200 bg-red-50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-2 text-red-700">
-                      <AlertCircle className="h-5 w-5" />
-                      <span>{formError}</span>
+                    {/* 주문 안내 */}
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <p>• 주문 확인 후 1-2일 내에 배송됩니다.</p>
+                      <p>• 배송비는 무료입니다.</p>
+                      <p>• 주문 취소는 배송 전까지 가능합니다.</p>
                     </div>
                   </CardContent>
                 </Card>
-              )}
-            </div>
-
-            {/* 주문 요약 */}
-            <div className="lg:col-span-1">
-              <Card className="sticky top-24">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    주문 요약
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* 주문 아이템 목록 */}
-                  <div className="space-y-3">
-                    {isDirectMode
-                      ? renderDirectPurchaseItems()
-                      : renderCartItems()}
-                  </div>
-
-                  <Separator />
-
-                  {/* 주문 금액 정보 */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>상품 금액</span>
-                      <span>{formatPrice(totalAmount)}원</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>배송비</span>
-                      <span className="text-green-600">무료</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-bold">
-                      <span>총 결제 금액</span>
-                      <span className="text-lg text-orange-600">
-                        {formatPrice(totalAmount)}원
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 주문 완료 버튼 */}
-                  <Button
-                    type="submit"
-                    className="w-full h-12"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                        <span>주문 처리 중...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>{formatPrice(totalAmount)}원 결제하기</span>
-                      </div>
-                    )}
-                  </Button>
-
-                  {/* 주문 안내 */}
-                  <div className="text-xs text-gray-500 space-y-1">
-                    <p>• 주문 완료 후 취소/변경이 어려울 수 있습니다.</p>
-                    <p>• 상품에 따라 배송일이 달라질 수 있습니다.</p>
-                    <p>• 무료배송은 5만원 이상 주문 시 적용됩니다.</p>
-                  </div>
-                </CardContent>
-              </Card>
+              </div>
             </div>
           </form>
         </div>
       </main>
     </div>
+  );
+}
+
+// 서버 컴포넌트 래퍼 (Suspense로 감싸기)
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col bg-background">
+          <Navbar />
+          <main className="flex-grow">
+            <CheckoutSkeleton />
+          </main>
+        </div>
+      }
+    >
+      <CheckoutPageClient />
+    </Suspense>
   );
 }

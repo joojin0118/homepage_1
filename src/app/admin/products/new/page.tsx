@@ -27,11 +27,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ACTUAL_CATEGORIES } from "@/constants/categories";
+import {
   ArrowLeft,
   Package,
   Save,
   AlertCircle,
   CheckCircle2,
+  Grid3X3,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -43,6 +52,7 @@ interface FormErrors {
   price?: string;
   image_url?: string;
   stock_quantity?: string;
+  category?: string;
   general?: string;
 }
 
@@ -54,6 +64,7 @@ export default function NewProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [success, setSuccess] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   console.log("📦 새 상품 등록 페이지 렌더링");
 
@@ -147,6 +158,14 @@ export default function NewProductPage() {
           newErrors.description = "상품 설명은 1,000자 이내로 입력해주세요.";
         } else {
           delete newErrors.description;
+        }
+        break;
+
+      case "category":
+        if (!value) {
+          newErrors.category = "카테고리를 선택해주세요.";
+        } else {
+          delete newErrors.category;
         }
         break;
     }
@@ -360,6 +379,55 @@ export default function NewProductPage() {
                       상품 이미지의 URL을 입력해주세요. 비워두면 기본 이미지가
                       사용됩니다.
                     </p>
+                  </div>
+
+                  {/* 카테고리 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="category">카테고리 *</Label>
+                    <Select
+                      value={selectedCategory}
+                      onValueChange={(value) => {
+                        setSelectedCategory(value);
+                        validateField("category", value);
+                      }}
+                      disabled={isSubmitting || success}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="카테고리를 선택해주세요">
+                          {selectedCategory && (
+                            <div className="flex items-center">
+                              <Grid3X3 className="h-4 w-4 mr-2" />
+                              {
+                                ACTUAL_CATEGORIES.find(
+                                  (cat) => cat.value === selectedCategory,
+                                )?.label
+                              }
+                            </div>
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ACTUAL_CATEGORIES.map((category) => (
+                          <SelectItem
+                            key={category.value}
+                            value={category.value}
+                          >
+                            <div className="flex items-center">
+                              <Grid3X3 className="h-4 w-4 mr-2" />
+                              {category.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <input
+                      type="hidden"
+                      name="category"
+                      value={selectedCategory}
+                    />
+                    {errors.category && (
+                      <p className="text-sm text-red-600">{errors.category}</p>
+                    )}
                   </div>
 
                   {/* 제출 버튼 */}
