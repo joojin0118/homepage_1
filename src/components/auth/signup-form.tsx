@@ -47,6 +47,7 @@ import {
   isPasswordValid,
 } from "@/components/auth/password-requirements";
 import { signup } from "@/actions/auth";
+import { AlertTriangle } from "lucide-react";
 
 // 초기 상태 정의
 const initialState = {
@@ -121,11 +122,21 @@ export function SignupForm({
 
       {signupState.success && (
         <Alert>
-          <AlertDescription className="text-green-600 dark:text-green-400">
+          <AlertDescription className="text-green-600 dark:text-green-400 whitespace-pre-line">
             {signupState.success}
           </AlertDescription>
         </Alert>
       )}
+
+      {/* 브라우저 호환성 안내 */}
+      <Alert>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          <strong>중요:</strong> 회원가입 인증 이메일은 현재 브라우저에서만
+          작동합니다. 이메일 링크를 다른 브라우저에서 클릭하면 인증에 실패할 수
+          있습니다.
+        </AlertDescription>
+      </Alert>
 
       <div className="space-y-2 sm:space-y-3">
         <Label htmlFor="email" className="text-sm sm:text-base">

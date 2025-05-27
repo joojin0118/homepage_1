@@ -10,6 +10,7 @@
  * 5. 주문 완료 처리
  * 6. 로딩 상태 관리
  * 7. 에러 핸들링
+ * 8. 결제 버튼 중복 클릭 방지 (디바운싱)
  *
  * @dependencies
  * - @/hooks/use-cart: 장바구니 hooks
@@ -46,6 +47,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useOrder } from "@/components/order/order-context";
 
 // 바로 구매 데이터 타입
 interface DirectPurchaseItem {
@@ -121,6 +123,7 @@ function CheckoutPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoading: authLoading } = useAuth();
+  const { isOrderProcessing, setOrderProcessing, canStartOrder } = useOrder();
   const {
     data: cartData,
     isLoading: cartLoading,
@@ -131,6 +134,8 @@ function CheckoutPageClient() {
   const [directPurchaseData, setDirectPurchaseData] =
     useState<DirectPurchaseData | null>(null);
   const [isDirectMode, setIsDirectMode] = useState(false);
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  const [lastClickTime, setLastClickTime] = useState(0);
 
   console.group("🛒 주문서 페이지 렌더링");
 
@@ -173,15 +178,86 @@ function CheckoutPageClient() {
     console.groupEnd();
   }, [searchParams, router]);
 
+  // 페이지 이탈 방지 (결제 처리 중일 때)
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (isSubmitting || isPaymentProcessing || isOrderProcessing) {
+        event.preventDefault();
+        event.returnValue = "결제가 진행 중입니다. 페이지를 떠나시겠습니까?";
+        return "결제가 진행 중입니다. 페이지를 떠나시겠습니까?";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isSubmitting, isPaymentProcessing, isOrderProcessing]);
+
+  // 에러 메시지 자동 제거
+  useEffect(() => {
+    if (formError) {
+      const timer = setTimeout(() => {
+        setFormError(null);
+      }, 5000); // 5초 후 에러 메시지 제거
+
+      return () => clearTimeout(timer);
+    }
+  }, [formError]);
+
   // 폼 제출 처리
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); // 기본 form 제출 방지
+
     console.group("📦 주문 처리 시작");
     console.log("주문 모드:", isDirectMode ? "바로 구매" : "장바구니");
 
+    // 디바운싱: 마지막 클릭으로부터 2초 이내 재클릭 방지
+    const now = Date.now();
+    if (now - lastClickTime < 2000) {
+      console.warn("너무 빠른 연속 클릭 감지됨");
+      console.groupEnd();
+      setFormError("너무 빠르게 클릭하셨습니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    setLastClickTime(now);
+
+    // 이미 처리 중인지 확인 (강화된 검사)
+    if (isSubmitting || isOrderProcessing || isPaymentProcessing) {
+      console.warn("이미 주문 처리 중입니다:", {
+        isSubmitting,
+        isOrderProcessing,
+        isPaymentProcessing,
+      });
+      console.groupEnd();
+      setFormError("이미 주문이 진행 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
+    // 전역 주문 상태 확인
+    if (!canStartOrder()) {
+      console.warn("이미 다른 주문이 진행 중입니다.");
+      console.groupEnd();
+      setFormError("이미 주문이 진행 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
+    // 모든 상태를 처리 중으로 설정
     setIsSubmitting(true);
+    setIsPaymentProcessing(true);
+    setOrderProcessing(true);
     setFormError(null);
 
     try {
+      // FormData 수동 생성
+      const formData = new FormData(event.currentTarget);
+
+      console.log("🔍 전송할 데이터 검증:", {
+        isDirectMode,
+        hasDirectPurchaseData: !!directPurchaseData,
+        hasCartData: !!cartData,
+        cartItemsCount: cartData?.items?.length || 0,
+        directItemsCount: directPurchaseData?.items?.length || 0,
+      });
+
       if (isDirectMode && directPurchaseData) {
         // 바로 구매 데이터를 FormData에 추가
         formData.append("is_direct_purchase", "true");
@@ -189,7 +265,49 @@ function CheckoutPageClient() {
           "direct_purchase_data",
           JSON.stringify(directPurchaseData),
         );
-        console.log("바로 구매 데이터 첨부");
+        console.log("바로 구매 데이터 첨부:", directPurchaseData);
+      } else if (!isDirectMode && cartData) {
+        // 장바구니 데이터를 FormData에 추가
+        formData.append("is_direct_purchase", "false");
+
+        // 장바구니 데이터 유효성 재검증
+        if (!cartData.items || cartData.items.length === 0) {
+          console.error("❌ 장바구니 데이터가 비어있음");
+          setFormError(
+            "장바구니가 비어있습니다. 상품을 추가한 후 다시 시도해주세요.",
+          );
+          return;
+        }
+
+        const cartDataToSend = {
+          items: cartData.items.map((item) => ({
+            product: {
+              id: item.product.id,
+              name: item.product.name,
+              price: item.product.price,
+              image_url: item.product.image_url,
+              stock_quantity: item.product.stock_quantity,
+            },
+            quantity: item.quantity,
+            id: item.id,
+            created_at: item.created_at,
+          })),
+          totalAmount: cartData.totalAmount,
+          timestamp: Date.now(),
+        };
+
+        formData.append("cart_data", JSON.stringify(cartDataToSend));
+        console.log("장바구니 데이터 첨부:", cartDataToSend);
+      } else {
+        console.error("❌ 주문 데이터가 없습니다:", {
+          isDirectMode,
+          hasDirectPurchaseData: !!directPurchaseData,
+          hasCartData: !!cartData,
+        });
+        setFormError(
+          "주문할 상품이 없습니다. 페이지를 새로고침하고 다시 시도해주세요.",
+        );
+        return;
       }
 
       await createOrder(formData);
@@ -211,8 +329,33 @@ function CheckoutPageClient() {
           ? error.message
           : "주문 처리 중 오류가 발생했습니다.";
       setFormError(errorMessage);
-    } finally {
+
+      // 에러 발생 시 상태 초기화
       setIsSubmitting(false);
+      setIsPaymentProcessing(false);
+      setOrderProcessing(false);
+    }
+    // finally 블록은 제거하여 성공 시 상태 유지 (리다이렉트 되므로)
+  };
+
+  // 결제 버튼 클릭 핸들러 (추가 보안)
+  const handlePaymentClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // 이미 처리 중이면 클릭 무시
+    if (isSubmitting || isOrderProcessing || isPaymentProcessing) {
+      event.preventDefault();
+      event.stopPropagation();
+      console.warn("결제 처리 중 - 클릭 무시됨");
+      return;
+    }
+
+    // 디바운싱 체크
+    const now = Date.now();
+    if (now - lastClickTime < 2000) {
+      event.preventDefault();
+      event.stopPropagation();
+      console.warn("빠른 연속 클릭 - 클릭 무시됨");
+      setFormError("너무 빠르게 클릭하셨습니다. 잠시 후 다시 시도해주세요.");
+      return;
     }
   };
 
@@ -224,6 +367,34 @@ function CheckoutPageClient() {
       ? new Error("바로 구매 데이터를 찾을 수 없습니다.")
       : null
     : cartError;
+
+  console.log("🔍 주문 데이터 상태:", {
+    isDirectMode,
+    hasOrderData: !!orderData,
+    isOrderLoading,
+    hasOrderError: !!orderError,
+    cartItemsCount: cartData?.items?.length || 0,
+    directItemsCount: directPurchaseData?.items?.length || 0,
+    cartData: cartData
+      ? {
+          items: cartData.items?.length || 0,
+          totalAmount: cartData.totalAmount,
+          totalItems: cartData.totalItems,
+          firstItem: cartData.items?.[0]
+            ? {
+                id: cartData.items[0].id,
+                productName: cartData.items[0].product?.name,
+                quantity: cartData.items[0].quantity,
+              }
+            : null,
+        }
+      : null,
+  });
+
+  // 에러 상태 또는 빈 주문
+  const hasValidOrderData = isDirectMode
+    ? directPurchaseData?.items?.length > 0
+    : cartData?.items?.length > 0;
 
   // 로딩 상태
   if (isOrderLoading || authLoading) {
@@ -237,14 +408,13 @@ function CheckoutPageClient() {
     );
   }
 
-  // 에러 상태 또는 빈 주문
-  if (
-    orderError ||
-    !orderData ||
-    (isDirectMode
-      ? directPurchaseData!.items.length === 0
-      : cartData!.items.length === 0)
-  ) {
+  if (orderError || !orderData || !hasValidOrderData) {
+    console.warn("⚠️ 주문 불가 상태:", {
+      orderError: orderError?.message,
+      hasOrderData: !!orderData,
+      hasValidOrderData,
+      isDirectMode,
+    });
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
@@ -259,9 +429,23 @@ function CheckoutPageClient() {
                 {orderError?.message.includes("로그인")
                   ? "로그인이 필요합니다."
                   : isDirectMode
-                    ? "바로 구매 데이터를 찾을 수 없습니다."
-                    : "장바구니가 비어있거나 오류가 발생했습니다."}
+                    ? "바로 구매 데이터를 찾을 수 없습니다. 상품 페이지에서 다시 시도해주세요."
+                    : "장바구니가 비어있거나 데이터를 불러올 수 없습니다. 장바구니를 확인해주세요."}
               </p>
+
+              {/* 문제 해결 가이드 */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6 text-sm text-left">
+                <h3 className="font-medium mb-2">다음을 시도해보세요:</h3>
+                <ul className="space-y-1 text-gray-600">
+                  <li>• 페이지를 새로고침해보세요</li>
+                  {!isDirectMode && (
+                    <li>• 장바구니에 상품이 있는지 확인해보세요</li>
+                  )}
+                  <li>• 인터넷 연결을 확인해보세요</li>
+                  <li>• 잠시 후 다시 시도해보세요</li>
+                </ul>
+              </div>
+
               <div className="space-y-3">
                 {orderError?.message.includes("로그인") ? (
                   <Link href="/login">
@@ -392,7 +576,7 @@ function CheckoutPageClient() {
 
         {/* 주문서 내용 */}
         <div className="container mx-auto px-4 py-8">
-          <form action={handleSubmit}>
+          <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* 주문자 정보 */}
               <div className="lg:col-span-2 space-y-6">
@@ -486,12 +670,20 @@ function CheckoutPageClient() {
                       type="submit"
                       className="w-full"
                       size="lg"
-                      disabled={isSubmitting}
+                      disabled={
+                        isSubmitting || isOrderProcessing || isPaymentProcessing
+                      }
+                      onClick={handlePaymentClick}
                     >
-                      {isSubmitting ? (
+                      {isSubmitting || isPaymentProcessing ? (
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          주문 처리 중...
+                          결제 처리 중...
+                        </div>
+                      ) : isOrderProcessing ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          다른 주문 처리 중...
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">

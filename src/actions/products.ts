@@ -56,6 +56,7 @@ export async function getProducts(
   page: number = 1,
   limit: number = 12,
   category?: string,
+  searchTerm?: string,
 ): Promise<{
   products: Product[];
   totalCount: number;
@@ -70,26 +71,36 @@ export async function getProducts(
       limit,
       "카테고리:",
       category || "전체",
+      "검색어:",
+      searchTerm || "없음",
     );
 
     const supabase = await createServerSupabaseClient();
     const offset = (page - 1) * limit;
 
-    // 카테고리 필터 조건
+    // 기본 쿼리
     let query = supabase.from("products").select("*", { count: "exact" });
     let countQuery = supabase
       .from("products")
       .select("*", { count: "exact", head: true });
 
+    // 카테고리 필터 조건
     if (category && category !== "all") {
       query = query.eq("category", category);
       countQuery = countQuery.eq("category", category);
     }
 
-    // 전체 상품 수 조회 (카테고리 필터 적용)
+    // 검색 조건 (상품명 또는 설명에서 검색)
+    if (searchTerm && searchTerm.trim()) {
+      const searchFilter = `name.ilike.%${searchTerm.trim()}%,description.ilike.%${searchTerm.trim()}%`;
+      query = query.or(searchFilter);
+      countQuery = countQuery.or(searchFilter);
+    }
+
+    // 전체 상품 수 조회 (필터 적용)
     const { count } = await countQuery;
 
-    // 상품 목록 조회 (카테고리 필터 적용)
+    // 상품 목록 조회 (필터 적용)
     const { data: products, error } = await query
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);

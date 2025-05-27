@@ -71,23 +71,53 @@ export async function updateSession(request: NextRequest) {
   );
 
   // 토큰 갱신 및 사용자 정보 가져오기
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const {
+      data: { user: authUser },
+      error,
+    } = await supabase.auth.getUser();
+
+    // 세션 관련 에러는 무시하고 로그아웃 상태로 처리
+    if (
+      error &&
+      (error.message.includes("session_missing") ||
+        error.message.includes("Auth session missing") ||
+        error.message.includes("JWT"))
+    ) {
+      console.log("[Middleware] No valid session found");
+      user = null;
+    } else if (error) {
+      console.error("[Middleware] Auth error:", error);
+      user = null;
+    } else {
+      user = authUser;
+    }
+  } catch (error) {
+    console.error("[Middleware] Failed to get user:", error);
+    user = null;
+  }
 
   // 현재 경로 확인
   const path = request.nextUrl.pathname;
 
+  console.log("[Middleware] Path:", path, "User:", user?.email || "none");
+
   // 이미 로그인된 사용자가 /login 페이지에 접근할 때 홈으로 리다이렉트
   if (path === "/login" && user) {
+    console.log("[Middleware] Redirecting logged-in user from /login to /");
     return NextResponse.redirect(new URL("/", request.url));
   }
 
   // 보호된 라우트에 대한 인증 체크
-  const protectedRoute = path.startsWith("/profile");
+  const protectedRoute =
+    path.startsWith("/profile") ||
+    path.startsWith("/orders") ||
+    path.startsWith("/admin");
 
   // 인증이 필요한 페이지에 접근 시 로그인이 되어 있지 않으면 로그인 페이지로 리다이렉션
   if (protectedRoute && !user) {
+    console.log("[Middleware] Redirecting unauthenticated user to /login");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

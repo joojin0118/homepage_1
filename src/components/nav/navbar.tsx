@@ -20,7 +20,7 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           <MobileMenu />
           <Link href="/" className="text-2xl font-bold">
-            보일러플레이트
+            Shop Mall
           </Link>
         </div>
 

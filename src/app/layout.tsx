@@ -41,6 +41,7 @@ import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/utils/seo/constants";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { QueryProvider } from "@/components/providers/query-client-provider";
+import { OrderProvider } from "@/components/order/order-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -153,14 +154,18 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <AuthProvider>{children}</AuthProvider>
-          </ThemeProvider>
+          <AuthProvider>
+            <OrderProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+              </ThemeProvider>
+            </OrderProvider>
+          </AuthProvider>
         </QueryProvider>
         <Analytics />
         <WebsiteJsonLd />

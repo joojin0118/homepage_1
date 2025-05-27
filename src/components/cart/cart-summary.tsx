@@ -20,18 +20,13 @@
 
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { 
-  CreditCard, 
-  Truck, 
-  Gift,
-  ShoppingBag
-} from "lucide-react";
+import { CreditCard, Package, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
+import { useState } from "react";
 
 interface CartSummaryProps {
   totalItems: number;
@@ -39,9 +34,12 @@ interface CartSummaryProps {
 }
 
 export function CartSummary({ totalItems, totalAmount }: CartSummaryProps) {
+  const [isNavigating, setIsNavigating] = useState(false);
+
   console.log("💰 CartSummary 렌더링:", {
     totalItems,
     totalAmount,
+    isNavigating,
   });
 
   // 배송비 계산 (50,000원 이상 무료배송)
@@ -49,129 +47,113 @@ export function CartSummary({ totalItems, totalAmount }: CartSummaryProps) {
   const shippingFee = totalAmount >= shippingThreshold ? 0 : 3000;
   const finalAmount = totalAmount + shippingFee;
 
-  // 무료배송까지 필요한 금액
-  const amountForFreeShipping = shippingThreshold - totalAmount;
+  // 주문하기 버튼 클릭 핸들러
+  const handleCheckoutClick = () => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+
+    // 페이지 전환이 완료되면 상태 리셋 (보험용)
+    setTimeout(() => {
+      setIsNavigating(false);
+    }, 3000);
+  };
 
   return (
-    <div className="space-y-4">
-      {/* 주문 요약 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5" />
-            주문 요약
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* 상품 정보 */}
-          <div className="flex justify-between text-sm">
-            <span>상품 ({totalItems}개)</span>
-            <span>{formatPrice(totalAmount)}원</span>
+    <Card className="sticky top-4">
+      <CardContent className="p-6">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900">주문 요약</h3>
+
+        {/* 총 상품 정보 */}
+        <div className="space-y-3 mb-6">
+          <div className="flex justify-between">
+            <span className="text-gray-600">총 상품</span>
+            <span className="font-medium">{totalItems}개</span>
           </div>
 
-          {/* 배송비 */}
-          <div className="flex justify-between text-sm">
-            <span className="flex items-center gap-1">
-              <Truck className="h-4 w-4" />
-              배송비
-            </span>
-            <span className={shippingFee === 0 ? "text-green-600 font-medium" : ""}>
-              {shippingFee === 0 ? "무료" : `${formatPrice(shippingFee)}원`}
-            </span>
+          <div className="flex justify-between">
+            <span className="text-gray-600">상품 총액</span>
+            <span className="font-medium">{formatPrice(totalAmount)}원</span>
           </div>
 
-          {/* 무료배송 혜택 안내 */}
-          {shippingFee > 0 && amountForFreeShipping > 0 && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Gift className="h-4 w-4 text-blue-600 mt-0.5" />
-                <div className="text-sm">
-                  <p className="text-blue-800 font-medium">
-                    {formatPrice(amountForFreeShipping)}원 더 담으면 무료배송!
-                  </p>
-                  <p className="text-blue-600 text-xs mt-1">
-                    50,000원 이상 주문 시 배송비 무료
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="flex justify-between">
+            <span className="text-gray-600">배송비</span>
+            <span className="text-green-600 font-medium">무료</span>
+          </div>
 
-          {/* 무료배송 달성 */}
-          {shippingFee === 0 && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Gift className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-800 font-medium">
-                  무료배송 혜택 적용!
-                </span>
-              </div>
-            </div>
-          )}
+          <div className="border-t border-gray-200 my-3"></div>
 
-          <Separator />
-
-          {/* 총 결제 금액 */}
-          <div className="flex justify-between items-center">
-            <span className="text-lg font-semibold">총 결제 금액</span>
-            <span className="text-xl font-bold text-orange-600">
+          <div className="flex justify-between text-lg">
+            <span className="font-semibold">총 결제금액</span>
+            <span className="font-bold text-orange-600">
               {formatPrice(finalAmount)}원
             </span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* 주문하기 버튼 */}
-      <div className="space-y-3">
-        <Button 
-          className="w-full bg-orange-500 hover:bg-orange-600 h-12 text-lg"
-          size="lg"
-          asChild
-        >
-          <Link href="/checkout">
-            <CreditCard className="h-5 w-5 mr-2" />
-            주문하기
-          </Link>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          className="w-full h-10"
-          asChild
-        >
-          <Link href="/">
-            계속 쇼핑하기
-          </Link>
-        </Button>
-      </div>
-
-      {/* 혜택 안내 */}
-      <Card className="bg-gray-50">
-        <CardContent className="p-4">
-          <h4 className="font-medium mb-3 text-gray-900">이용 안내</h4>
-          <ul className="text-sm text-gray-600 space-y-1">
-            <li>• 50,000원 이상 주문 시 무료배송</li>
-            <li>• 평일 오후 2시 이전 주문 시 당일 발송</li>
-            <li>• 배송기간: 1-2일 (공휴일 제외)</li>
-            <li>• 제주도/도서산간 지역 추가 배송비 발생</li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* 추가 혜택 (향후 확장용) */}
-      <Card className="border-dashed border-2 border-gray-200">
-        <CardContent className="p-4 text-center">
-          <div className="text-gray-500 mb-2">
-            <Gift className="h-6 w-6 mx-auto mb-1" />
+        {/* 혜택 정보 */}
+        <div className="mb-6 p-3 bg-green-50 rounded-lg border border-green-200">
+          <div className="flex items-center gap-2 text-green-700">
+            <CheckCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">무료배송 혜택</span>
           </div>
-          <p className="text-sm text-gray-600 mb-2">
-            회원가입하고 추가 혜택을 받아보세요!
-          </p>
-          <Badge variant="outline" className="text-xs">
-            첫 주문 시 5% 할인 (준비 중)
-          </Badge>
-        </CardContent>
-      </Card>
-    </div>
+          <p className="text-xs text-green-600 mt-1">전 상품 배송비 무료!</p>
+        </div>
+
+        {/* 액션 버튼들 */}
+        <div className="space-y-3">
+          <Button
+            className="w-full bg-orange-500 hover:bg-orange-600 h-12 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            size="lg"
+            disabled={isNavigating}
+            onClick={handleCheckoutClick}
+            asChild={!isNavigating}
+          >
+            {isNavigating ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                주문서 준비 중...
+              </div>
+            ) : (
+              <Link href="/checkout">
+                <CreditCard className="h-5 w-5 mr-2" />
+                주문하기
+              </Link>
+            )}
+          </Button>
+
+          <Button variant="outline" className="w-full h-10" asChild>
+            <Link href="/">계속 쇼핑하기</Link>
+          </Button>
+        </div>
+
+        {/* 혜택 안내 */}
+        <Card className="bg-gray-50">
+          <CardContent className="p-4">
+            <h4 className="font-medium mb-3 text-gray-900">이용 안내</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• 50,000원 이상 주문 시 무료배송</li>
+              <li>• 평일 오후 2시 이전 주문 시 당일 발송</li>
+              <li>• 배송기간: 1-2일 (공휴일 제외)</li>
+              <li>• 제주도/도서산간 지역 추가 배송비 발생</li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        {/* 추가 혜택 (향후 확장용) */}
+        <Card className="border-dashed border-2 border-gray-200">
+          <CardContent className="p-4 text-center">
+            <div className="text-gray-500 mb-2">
+              <Package className="h-6 w-6 mx-auto mb-1" />
+            </div>
+            <p className="text-sm text-gray-600 mb-2">
+              회원가입하고 추가 혜택을 받아보세요!
+            </p>
+            <Badge variant="outline" className="text-xs">
+              첫 주문 시 5% 할인 (준비 중)
+            </Badge>
+          </CardContent>
+        </Card>
+      </CardContent>
+    </Card>
   );
-} 
+}

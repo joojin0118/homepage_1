@@ -8,11 +8,12 @@
  * 주요 기능:
  * 1. 이메일/비밀번호 로그인 폼 처리 및 Supabase 인증
  * 2. 이메일/비밀번호 회원가입 폼 처리 및 계정 생성
- * 3. 폼 유효성 검사 (Zod 스키마 활용)
- * 4. 사용자 친화적 에러 메시지 제공
- * 5. 로그인 성공 시 홈('/경로')으로 리다이렉트 처리
- * 6. 회원가입 성공 시 이메일 확인 안내
- * 7. revalidatePath를 통한 전체 앱 레이아웃 캐시 무효화로 인증 상태 반영
+ * 3. 매직 링크 (이메일 링크) 인증 처리
+ * 4. 폼 유효성 검사 (Zod 스키마 활용)
+ * 5. 사용자 친화적 에러 메시지 제공
+ * 6. 로그인 성공 시 홈('/경로')으로 리다이렉트 처리
+ * 7. 회원가입 성공 시 이메일 확인 안내
+ * 8. revalidatePath를 통한 전체 앱 레이아웃 캐시 무효화로 인증 상태 반영
  *
  * 구현 로직:
  * - Next.js의 "use server" 지시문으로 서버 액션 정의
@@ -36,6 +37,12 @@
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { loginSchema, signupSchema } from "@/types/schema";
+import { z } from "zod";
+
+// 이메일 스키마 정의
+const emailSchema = z.object({
+  email: z.string().email("올바른 이메일 주소를 입력해주세요."),
+});
 
 // 액션 함수들의 반환 타입 정의
 type ActionState = {
@@ -48,6 +55,68 @@ type ActionState = {
     password?: string;
   };
 };
+
+/**
+ * 매직 링크 이메일 인증 (OTP)
+ */
+export async function sendMagicLink(
+  prevState: ActionState | null,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const email = formData.get("email") as string;
+
+    // 이메일 유효성 검사
+    const result = emailSchema.safeParse({ email });
+
+    if (!result.success) {
+      return {
+        error: "올바른 이메일 주소를 입력해주세요.",
+        success: null,
+        fieldErrors: { email: result.error.errors[0]?.message },
+      };
+    }
+
+    const supabase = await createServerSupabaseClient();
+
+    // 매직 링크 발송
+    const { error } = await supabase.auth.signInWithOtp({
+      email: result.data.email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${
+          process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+        }/auth/callback?next=${encodeURIComponent("/")}`,
+      },
+    });
+
+    if (error) {
+      console.error("Magic link error:", error);
+
+      // 알려진 오류 패턴에 따라 더 친절한 메시지 제공
+      let errorMessage = error.message;
+      if (error.message.includes("rate_limit")) {
+        errorMessage = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
+      } else if (error.message.includes("invalid_email")) {
+        errorMessage = "올바른 이메일 주소를 입력해주세요.";
+      }
+
+      return { error: errorMessage, success: null };
+    }
+
+    return {
+      success:
+        "이메일을 확인해주세요. 로그인 링크를 보내드렸습니다. \n\n⚠️ 중요: 이메일 링크는 현재 브라우저에서만 작동합니다.",
+      error: null,
+    };
+  } catch (error) {
+    console.error("Send magic link error:", error);
+    return {
+      error: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      success: null,
+    };
+  }
+}
 
 export async function login(
   prevState: ActionState | null,
@@ -161,7 +230,7 @@ export async function signup(
       options: {
         emailRedirectTo: `${
           process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-        }/auth/callback`,
+        }/auth/callback?next=${encodeURIComponent("/")}`,
       },
     });
 
@@ -183,7 +252,8 @@ export async function signup(
     }
 
     return {
-      success: "이메일을 확인해주세요.",
+      success:
+        "이메일을 확인해주세요. 인증 링크를 보내드렸습니다. \n\n⚠️ 중요: 이메일 링크는 현재 브라우저에서만 작동합니다.",
       error: null,
     };
   } catch (error) {

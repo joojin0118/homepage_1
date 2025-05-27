@@ -18,7 +18,7 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/utils/supabase/server";
-import { getCartItems, clearCart } from "@/actions/cart";
+import { clearCart } from "@/actions/cart";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -89,6 +89,16 @@ export async function createOrder(formData: FormData) {
     const directPurchaseDataRaw = formData.get(
       "direct_purchase_data",
     ) as string;
+    const cartDataRaw = formData.get("cart_data") as string;
+
+    console.log("🔍 받은 폼 데이터:", {
+      customerName: customerName?.substring(0, 10) + "...",
+      isDirectPurchase,
+      hasDirectPurchaseData: !!directPurchaseDataRaw,
+      hasCartData: !!cartDataRaw,
+      directDataLength: directPurchaseDataRaw?.length || 0,
+      cartDataLength: cartDataRaw?.length || 0,
+    });
 
     // 입력값 검증
     const validatedData = CreateOrderSchema.parse({
@@ -196,22 +206,76 @@ export async function createOrder(formData: FormData) {
       // 기존 장바구니 모드
       console.log("장바구니 데이터 처리");
 
-      // 장바구니 아이템 조회
-      const cartSummary = await getCartItems();
-
-      if (!cartSummary.items || cartSummary.items.length === 0) {
-        console.error("빈 장바구니");
+      // 클라이언트에서 전달받은 장바구니 데이터가 반드시 있어야 함
+      if (!cartDataRaw) {
+        console.error("❌ 클라이언트 장바구니 데이터가 없음");
         console.groupEnd();
-        throw new Error("장바구니가 비어있습니다");
+        throw new Error(
+          "장바구니 데이터를 찾을 수 없습니다. 장바구니 페이지로 돌아가서 다시 시도해주세요.",
+        );
       }
 
-      totalAmount = cartSummary.totalAmount;
-      console.log("장바구니 아이템:", cartSummary.items.length, "개");
+      let cartData;
+      try {
+        cartData = JSON.parse(cartDataRaw);
+        console.log("✅ 클라이언트 장바구니 데이터 파싱 성공:", {
+          itemsCount: cartData.items?.length || 0,
+          totalAmount: cartData.totalAmount,
+          timestamp: cartData.timestamp,
+        });
+      } catch (parseError) {
+        console.error("❌ 장바구니 데이터 파싱 실패:", parseError);
+        console.groupEnd();
+        throw new Error(
+          "장바구니 데이터가 손상되었습니다. 장바구니 페이지로 돌아가서 다시 시도해주세요.",
+        );
+      }
+
+      if (!cartData.items || cartData.items.length === 0) {
+        console.error("❌ 장바구니 아이템이 없음");
+        console.groupEnd();
+        throw new Error(
+          "장바구니에 상품이 없습니다. 상품을 추가한 후 다시 시도해주세요.",
+        );
+      }
+
+      // 데이터 유효성 검사 (1시간 이내)
+      const now = Date.now();
+      const hourInMs = 60 * 60 * 1000;
+
+      if (now - cartData.timestamp > hourInMs) {
+        console.warn("⏰ 장바구니 데이터가 만료됨");
+        console.groupEnd();
+        throw new Error(
+          "장바구니 데이터가 만료되었습니다. 장바구니 페이지로 돌아가서 새로고침 후 다시 시도해주세요.",
+        );
+      }
+
+      totalAmount = cartData.totalAmount;
+      console.log("장바구니 아이템:", cartData.items.length, "개");
       console.log("총 주문 금액:", totalAmount, "원");
 
+      // 실제 상품 가격으로 총액 재계산 (가격 변동 고려)
+      let recalculatedTotal = 0;
+
       // 재고 검증 및 주문 아이템 데이터 준비
-      for (const item of cartSummary.items) {
-        const product = item.product as NonNullable<typeof item.product>;
+      for (const item of cartData.items) {
+        // 상품 정보 다시 조회하여 최신 데이터 사용
+        const { data: product, error: productError } = await supabase
+          .from("products")
+          .select("id, name, price, stock_quantity")
+          .eq("id", item.product.id)
+          .single();
+
+        if (productError || !product) {
+          console.error("상품 조회 실패:", item.product.id, productError);
+          console.groupEnd();
+          throw new Error(
+            `상품을 찾을 수 없습니다: ${item.product.name || item.product.id}`,
+          );
+        }
+
+        // 재고 검증
         if (product.stock_quantity < item.quantity) {
           console.error("재고 부족:", product.name, {
             요청수량: item.quantity,
@@ -223,12 +287,43 @@ export async function createOrder(formData: FormData) {
           );
         }
 
+        // 가격 변동 확인
+        if (product.price !== item.product.price) {
+          console.warn("가격 변동 감지:", product.name, {
+            장바구니가격: item.product.price,
+            현재가격: product.price,
+          });
+          // 실제 서비스에서는 사용자에게 알리고 확인받는 것이 좋음
+        }
+
         orderItems.push({
           product_id: product.id,
           quantity: item.quantity,
-          price_at_time: product.price,
+          price_at_time: product.price, // 현재 가격 사용
           product_name: product.name,
         });
+
+        recalculatedTotal += product.price * item.quantity;
+      }
+
+      // 총액 검증
+      if (Math.abs(recalculatedTotal - totalAmount) > 1) {
+        console.warn("💰 총액 불일치 감지:", {
+          클라이언트총액: totalAmount,
+          재계산총액: recalculatedTotal,
+          차이: Math.abs(recalculatedTotal - totalAmount),
+        });
+
+        // 차이가 크면 에러, 작으면 서버 가격 사용
+        if (Math.abs(recalculatedTotal - totalAmount) > totalAmount * 0.1) {
+          console.groupEnd();
+          throw new Error(
+            "상품 가격이 변동되었습니다. 장바구니를 새로고침하고 다시 시도해주세요.",
+          );
+        } else {
+          totalAmount = recalculatedTotal; // 서버 가격으로 업데이트
+          console.log("✅ 서버 가격으로 총액 업데이트:", totalAmount);
+        }
       }
     }
 
