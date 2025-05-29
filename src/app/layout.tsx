@@ -36,12 +36,12 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { Analytics } from "@vercel/analytics/next";
 import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/utils/seo/constants";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { QueryProvider } from "@/components/providers/query-client-provider";
 import { OrderProvider } from "@/components/order/order-context";
+import { AnalyticsProvider } from "@/components/analytics/analytics-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -167,7 +167,7 @@ export default function RootLayout({
             </OrderProvider>
           </AuthProvider>
         </QueryProvider>
-        <Analytics />
+        <AnalyticsProvider />
         <WebsiteJsonLd />
         <OrganizationJsonLd />
       </body>

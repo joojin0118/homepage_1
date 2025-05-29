@@ -57,3 +57,5 @@ next-env.d.ts
 # other
 .note/
 .cursor/mcp.json
+
+.vercel
