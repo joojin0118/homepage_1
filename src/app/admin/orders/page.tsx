@@ -334,72 +334,83 @@ function AdminOrdersPageClient() {
   }, [searchParams]);
 
   // 주문 목록 조회
-  const fetchOrders = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const fetchOrders = useCallback(
+    async (searchQuery?: string) => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      console.log("📦 관리자 주문 목록 조회", {
-        page: currentPage,
-        status: filterStatus,
-      });
+        const currentSearchTerm = searchQuery ?? searchTerm;
 
-      const result = await getOrdersForAdmin(currentPage, 10);
+        console.log("📦 관리자 주문 목록 조회", {
+          page: currentPage,
+          status: filterStatus,
+          search: currentSearchTerm,
+        });
 
-      // 필터링 적용
-      let filteredOrders = result.orders;
-      if (filterStatus) {
-        filteredOrders = result.orders.filter((o) => o.status === filterStatus);
+        const result = await getOrdersForAdmin(currentPage, 10);
+
+        // 필터링 적용
+        let filteredOrders = result.orders;
+        if (filterStatus) {
+          filteredOrders = result.orders.filter(
+            (o) => o.status === filterStatus,
+          );
+        }
+
+        // 검색어 필터링 (주문 ID나 사용자명)
+        if (currentSearchTerm) {
+          filteredOrders = filteredOrders.filter(
+            (o) =>
+              o.id.toString().includes(currentSearchTerm) ||
+              o.user_id.includes(currentSearchTerm) ||
+              (o.profiles?.name &&
+                o.profiles.name
+                  .toLowerCase()
+                  .includes(currentSearchTerm.toLowerCase())),
+          );
+        }
+
+        setOrders(filteredOrders);
+        setTotalPages(result.totalPages);
+
+        console.log("📦 주문 조회 완료:", {
+          전체주문: result.orders.length,
+          필터링된주문: filteredOrders.length,
+          페이지: currentPage,
+          총페이지: result.totalPages,
+        });
+      } catch (error) {
+        console.error("주문 조회 실패:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "주문 목록 조회 중 오류가 발생했습니다.";
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [currentPage, filterStatus],
+  );
 
-      // 검색어 필터링 (주문 ID나 사용자명)
-      if (searchTerm) {
-        filteredOrders = filteredOrders.filter(
-          (o) =>
-            o.id.toString().includes(searchTerm) ||
-            o.user_id.includes(searchTerm) ||
-            (o.profiles?.name &&
-              o.profiles.name.toLowerCase().includes(searchTerm.toLowerCase())),
-        );
-      }
-
-      setOrders(filteredOrders);
-      setTotalPages(result.totalPages);
-
-      console.log("📦 주문 조회 완료:", {
-        전체주문: result.orders.length,
-        필터링된주문: filteredOrders.length,
-        페이지: currentPage,
-        총페이지: result.totalPages,
-      });
-    } catch (error) {
-      console.error("주문 조회 실패:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "주문 목록 조회 중 오류가 발생했습니다.";
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, filterStatus, searchTerm]);
-
+  // 페이지 및 필터 변경 시 주문 조회
   useEffect(() => {
     if (!authLoading && user) {
       fetchOrders();
     }
   }, [currentPage, filterStatus, authLoading, user, fetchOrders]);
 
-  // 검색어 변경 처리
+  // 검색어 변경 시 디바운스 처리
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (!isLoading) {
-        fetchOrders();
+      if (!authLoading && user && !isLoading) {
+        fetchOrders(searchTerm);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, fetchOrders, isLoading]);
+  }, [searchTerm]);
 
   // 주문 상태 변경 처리
   const handleStatusUpdate = async (orderId: number, newStatus: string) => {

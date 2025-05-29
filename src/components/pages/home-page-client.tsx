@@ -208,7 +208,7 @@ function SearchSection({
           </div>
           {searchTerm && (
             <p className="text-center text-gray-600 mt-4">
-              &ldquo;{searchTerm}&rdquo; 검색 결과
+              {searchTerm} 검색 결과
             </p>
           )}
         </div>
@@ -273,9 +273,9 @@ function ProductSectionHeader({
   const getTitle = () => {
     if (searchTerm) {
       if (selectedCategory !== "all") {
-        return `&ldquo;${searchTerm}&rdquo; 검색 결과 (${categoryLabel})`;
+        return `${searchTerm} 검색 결과 (${categoryLabel})`;
       }
-      return `&ldquo;${searchTerm}&rdquo; 검색 결과`;
+      return `${searchTerm} 검색 결과`;
     }
 
     if (selectedCategory === "all") {

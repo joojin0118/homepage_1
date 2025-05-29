@@ -483,3 +483,116 @@ export async function deleteProduct(id: number): Promise<{
     };
   }
 }
+
+/**
+ * 상품 재고 수량 조정 (관리자만)
+ */
+export async function adjustProductStock(
+  productId: number,
+  adjustment: number, // 양수면 재고 증가, 음수면 재고 감소
+): Promise<{
+  success: boolean;
+  message: string;
+  newStock?: number;
+}> {
+  try {
+    console.group("📊 상품 재고 조정");
+    console.log("상품 ID:", productId, "조정량:", adjustment);
+
+    const supabase = await createServerSupabaseClient();
+
+    // 현재 사용자 확인
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("인증 실패:", authError);
+      console.groupEnd();
+      return { success: false, message: "로그인이 필요합니다." };
+    }
+
+    // 관리자 권한 확인
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.is_admin) {
+      console.error("관리자가 아닌 사용자의 재고 조정 시도:", user.id);
+      console.groupEnd();
+      return { success: false, message: "관리자 권한이 필요합니다." };
+    }
+
+    // 현재 상품 정보 조회
+    const { data: product, error: productError } = await supabase
+      .from("products")
+      .select("id, name, stock_quantity")
+      .eq("id", productId)
+      .single();
+
+    if (productError || !product) {
+      console.error("상품 조회 실패:", productError);
+      console.groupEnd();
+      return { success: false, message: "상품을 찾을 수 없습니다." };
+    }
+
+    // 새로운 재고 계산
+    const newStock = product.stock_quantity + adjustment;
+
+    // 재고가 음수가 되지 않도록 검증
+    if (newStock < 0) {
+      console.error("재고 부족으로 조정 불가:", {
+        현재재고: product.stock_quantity,
+        조정량: adjustment,
+        결과재고: newStock,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        message: `재고를 ${Math.abs(adjustment)}개 감소시킬 수 없습니다. 현재 재고: ${product.stock_quantity}개`,
+      };
+    }
+
+    // 재고 업데이트
+    const { error: updateError } = await supabase
+      .from("products")
+      .update({ stock_quantity: newStock })
+      .eq("id", productId);
+
+    if (updateError) {
+      console.error("재고 업데이트 실패:", updateError);
+      console.groupEnd();
+      return {
+        success: false,
+        message: "재고 업데이트 중 오류가 발생했습니다.",
+      };
+    }
+
+    console.log("재고 조정 완료:", {
+      상품명: product.name,
+      기존재고: product.stock_quantity,
+      조정량: adjustment,
+      새재고: newStock,
+    });
+    console.groupEnd();
+
+    // 관련 페이지 재검증
+    revalidatePath("/admin/products");
+    revalidatePath("/");
+    revalidatePath(`/products/${productId}`);
+
+    const actionText = adjustment > 0 ? "증가" : "감소";
+    return {
+      success: true,
+      message: `${product.name}의 재고가 ${Math.abs(adjustment)}개 ${actionText}했습니다. (현재 재고: ${newStock}개)`,
+      newStock,
+    };
+  } catch (error) {
+    console.error("재고 조정 오류:", error);
+    console.groupEnd();
+    throw error;
+  }
+}

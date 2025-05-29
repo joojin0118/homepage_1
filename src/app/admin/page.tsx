@@ -28,6 +28,7 @@ import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { getFileList } from "@/actions/upload";
 import { ProductUploadSection } from "@/components/admin/product-upload-section";
 import { FileListClient } from "@/components/admin/file-list-client";
+import { AdminMenuCards } from "@/components/admin/admin-menu-cards";
 import { Navbar } from "@/components/nav/navbar";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -180,11 +181,14 @@ export default async function AdminPage() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
+          {/* 관리 메뉴 카드 섹션 */}
+          <AdminMenuCards />
+
           {/* 파일 업로드 섹션 */}
           <ProductUploadSection />
 
           {/* 파일 목록 섹션 */}
-          <section className="bg-white rounded-lg border p-6">
+          <section id="file-section" className="bg-white rounded-lg border p-6">
             <div className="flex items-center space-x-3 mb-6">
               <FolderOpen className="h-6 w-6 text-green-600" />
               <h2 className="text-2xl font-bold text-gray-900">

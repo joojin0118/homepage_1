@@ -19,12 +19,93 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Settings } from "lucide-react";
 import Link from "next/link";
 import { LogoutButton } from "@/components/auth/buttons";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { createBrowserSupabaseClient } from "@/utils/supabase/client";
 
 export default function UserNav() {
   const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Supabase 클라이언트를 메모이제이션
+  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
+
+  // 관리자 권한 확인 함수를 useCallback으로 메모이제이션
+  const checkAdminStatus = useCallback(async () => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    try {
+      console.log("🔍 프로필 조회 시작:", user.id);
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle(); // single() 대신 maybeSingle() 사용
+
+      if (error) {
+        console.error("프로필 조회 오류:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        setIsAdmin(false);
+        return;
+      }
+
+      // 프로필이 존재하지 않는 경우 새로 생성
+      if (!profile) {
+        console.log("프로필이 존재하지 않음. 새 프로필 생성 중...");
+
+        const { data: newProfile, error: insertError } = await supabase
+          .from("profiles")
+          .insert([
+            {
+              id: user.id,
+              name: user.user_metadata?.name || null,
+              is_admin: false,
+            },
+          ])
+          .select("is_admin")
+          .single();
+
+        if (insertError) {
+          console.error("프로필 생성 오류:", {
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+            code: insertError.code,
+          });
+          setIsAdmin(false);
+          return;
+        }
+
+        console.log("새 프로필 생성 완료:", newProfile);
+        setIsAdmin(newProfile?.is_admin || false);
+      } else {
+        console.log("프로필 조회 완료:", profile);
+        setIsAdmin(profile?.is_admin || false);
+      }
+    } catch (error) {
+      console.error("관리자 권한 확인 중 예외:", {
+        error: error instanceof Error ? error.message : JSON.stringify(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      setIsAdmin(false);
+    }
+  }, [user?.id, supabase]); // user.id만 의존성으로 사용
+
+  // 관리자 권한 확인
+  useEffect(() => {
+    checkAdminStatus();
+  }, [checkAdminStatus]);
 
   if (!user) {
     return (
@@ -77,6 +158,28 @@ export default function UserNav() {
             </Button>
           </DropdownMenuItem>
         </DropdownMenuGroup>
+
+        {/* 관리자 메뉴 */}
+        {isAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem className="p-0 focus:bg-transparent">
+                <Button
+                  variant="ghost"
+                  className="px-2 py-1.5 w-full justify-start h-8 font-normal text-blue-600"
+                  asChild
+                >
+                  <Link href="/admin">
+                    <Settings className="h-4 w-4 mr-2" />
+                    관리자 대시보드
+                  </Link>
+                </Button>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
+        )}
+
         <DropdownMenuSeparator />
         <DropdownMenuItem className="p-0 focus:bg-transparent">
           <LogoutButton className="px-2 py-1.5 w-full justify-start h-8 font-normal" />

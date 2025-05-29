@@ -20,7 +20,11 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getProducts, deleteProduct } from "@/actions/products";
+import {
+  getProducts,
+  deleteProduct,
+  adjustProductStock,
+} from "@/actions/products";
 import type { Product } from "@/actions/products";
 import { Navbar } from "@/components/nav/navbar";
 import { Button } from "@/components/ui/button";
@@ -32,6 +36,7 @@ import {
   ArrowLeft,
   Package,
   Plus,
+  Minus,
   Search,
   Edit,
   Trash2,
@@ -155,12 +160,17 @@ function AdminProductsPageClient() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(
+    Number(searchParams?.get("page")) || 1,
+  );
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "low_stock">("all");
   const [deleteProductId, setDeleteProductId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [adjustingStock, setAdjustingStock] = useState<Record<number, boolean>>(
+    {},
+  );
 
   console.log("🔧 관리자 상품 관리 페이지 렌더링");
 
@@ -173,94 +183,159 @@ function AdminProductsPageClient() {
   }, [searchParams]);
 
   // 상품 목록 조회
-  const fetchProducts = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const fetchProducts = useCallback(
+    async (searchQuery?: string) => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      console.log("📦 관리자 상품 목록 조회", {
-        page: currentPage,
-        filter: filterType,
-      });
+        const currentSearchTerm = searchQuery ?? searchTerm;
 
-      const result = await getProducts(currentPage, 10);
+        console.log("📦 관리자 상품 목록 조회", {
+          page: currentPage,
+          filter: filterType,
+          search: currentSearchTerm,
+        });
 
-      // 필터링 적용
-      let filteredProducts = result.products;
-      if (filterType === "low_stock") {
-        filteredProducts = result.products.filter((p) => p.stock_quantity <= 5);
+        const result = await getProducts(currentPage, 10);
+
+        // 필터링 적용
+        let filteredProducts = result.products;
+        if (filterType === "low_stock") {
+          filteredProducts = result.products.filter(
+            (p) => p.stock_quantity <= 5,
+          );
+        }
+
+        // 검색어 필터링
+        if (currentSearchTerm) {
+          filteredProducts = filteredProducts.filter(
+            (p) =>
+              p.name.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
+              (p.description &&
+                p.description
+                  .toLowerCase()
+                  .includes(currentSearchTerm.toLowerCase())),
+          );
+        }
+
+        setProducts(filteredProducts);
+        setTotalPages(result.totalPages);
+
+        console.log("📦 상품 조회 완료:", {
+          전체상품: result.products.length,
+          필터링된상품: filteredProducts.length,
+          페이지: currentPage,
+          총페이지: result.totalPages,
+        });
+      } catch (error) {
+        console.error("상품 조회 실패:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "상품 목록 조회 중 오류가 발생했습니다.";
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [currentPage, filterType],
+  );
 
-      // 검색어 필터링
-      if (searchTerm) {
-        filteredProducts = filteredProducts.filter(
-          (p) =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.description &&
-              p.description.toLowerCase().includes(searchTerm.toLowerCase())),
-        );
-      }
-
-      setProducts(filteredProducts);
-      setTotalPages(result.totalPages);
-
-      console.log("📦 상품 조회 완료:", {
-        전체상품: result.products.length,
-        필터링된상품: filteredProducts.length,
-        페이지: currentPage,
-        총페이지: result.totalPages,
-      });
-    } catch (error) {
-      console.error("상품 조회 실패:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "상품 목록 조회 중 오류가 발생했습니다.";
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, filterType, searchTerm]);
-
+  // 페이지 및 필터 변경 시 상품 조회
   useEffect(() => {
     if (!authLoading && user) {
       fetchProducts();
     }
   }, [currentPage, filterType, authLoading, user, fetchProducts]);
 
-  // 검색어 변경 처리
+  // 검색어 변경 시 디바운스 처리
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (!isLoading) {
-        fetchProducts();
+      if (!authLoading && user && !isLoading) {
+        fetchProducts(searchTerm);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, fetchProducts, isLoading]);
+  }, [searchTerm]);
 
-  // 상품 삭제 처리
+  // 상품 삭제
   const handleDeleteProduct = async () => {
     if (!deleteProductId) return;
 
+    console.log("🗑️ 상품 삭제:", deleteProductId);
+    setIsDeleting(true);
+
     try {
-      setIsDeleting(true);
-      console.log("🗑️ 상품 삭제:", deleteProductId);
+      const result = await deleteProduct(deleteProductId);
 
-      await deleteProduct(deleteProductId);
-      await fetchProducts(); // 목록 새로고침
-
-      console.log("✅ 상품 삭제 완료");
-      setDeleteProductId(null);
+      if (result.success) {
+        alert(result.message);
+        fetchProducts(); // 목록 새로고침
+        setDeleteProductId(null);
+      } else {
+        alert(result.message);
+      }
     } catch (error) {
       console.error("상품 삭제 실패:", error);
       const errorMessage =
         error instanceof Error
           ? error.message
           : "상품 삭제 중 오류가 발생했습니다.";
-      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // 재고 조정
+  const handleStockAdjustment = async (
+    productId: number,
+    adjustment: number,
+  ) => {
+    console.log("📊 재고 조정:", productId, "조정량:", adjustment);
+
+    // 진행 중인 조정이 있으면 중단
+    if (adjustingStock[productId]) {
+      console.warn("이미 재고 조정 중입니다.");
+      return;
+    }
+
+    setAdjustingStock((prev) => ({ ...prev, [productId]: true }));
+
+    try {
+      const result = await adjustProductStock(productId, adjustment);
+
+      if (result.success) {
+        // 로컬 상태 업데이트 (Optimistic UI)
+        setProducts((prevProducts) =>
+          prevProducts.map((product) =>
+            product.id === productId
+              ? {
+                  ...product,
+                  stock_quantity: result.newStock || product.stock_quantity,
+                }
+              : product,
+          ),
+        );
+
+        console.log("✅ 재고 조정 성공:", result.message);
+        // 성공 시 간단한 시각적 피드백 (선택적)
+        // alert 대신 토스트나 더 subtle한 알림을 사용할 수 있음
+      } else {
+        alert(result.message);
+        console.error("❌ 재고 조정 실패:", result.message);
+      }
+    } catch (error) {
+      console.error("재고 조정 오류:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "재고 조정 중 오류가 발생했습니다.";
+      alert(errorMessage);
+    } finally {
+      setAdjustingStock((prev) => ({ ...prev, [productId]: false }));
     }
   };
 
@@ -482,7 +557,44 @@ function AdminProductsPageClient() {
                             <TableCell className="font-medium">
                               {formatPrice(product.price)}원
                             </TableCell>
-                            <TableCell>{product.stock_quantity}개</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleStockAdjustment(product.id, -1)
+                                    }
+                                    disabled={
+                                      adjustingStock[product.id] ||
+                                      product.stock_quantity <= 0
+                                    }
+                                    className="h-7 w-7 p-0"
+                                    title="재고 1개 감소"
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+
+                                  <span className="min-w-[3rem] text-center font-medium">
+                                    {product.stock_quantity}개
+                                  </span>
+
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleStockAdjustment(product.id, 1)
+                                    }
+                                    disabled={adjustingStock[product.id]}
+                                    className="h-7 w-7 p-0"
+                                    title="재고 1개 증가"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </TableCell>
                             <TableCell>
                               <StockBadge stock={product.stock_quantity} />
                             </TableCell>
@@ -515,6 +627,53 @@ function AdminProductsPageClient() {
                                       수정
                                     </DropdownMenuItem>
                                   </Link>
+
+                                  {/* 재고 조정 옵션들 */}
+                                  <div className="border-t my-1" />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleStockAdjustment(product.id, 10)
+                                    }
+                                    disabled={adjustingStock[product.id]}
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    재고 +10
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleStockAdjustment(product.id, 50)
+                                    }
+                                    disabled={adjustingStock[product.id]}
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    재고 +50
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleStockAdjustment(product.id, -10)
+                                    }
+                                    disabled={
+                                      adjustingStock[product.id] ||
+                                      product.stock_quantity < 10
+                                    }
+                                  >
+                                    <Minus className="h-4 w-4 mr-2" />
+                                    재고 -10
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleStockAdjustment(product.id, -50)
+                                    }
+                                    disabled={
+                                      adjustingStock[product.id] ||
+                                      product.stock_quantity < 50
+                                    }
+                                  >
+                                    <Minus className="h-4 w-4 mr-2" />
+                                    재고 -50
+                                  </DropdownMenuItem>
+
+                                  <div className="border-t my-1" />
                                   <DropdownMenuItem
                                     className="text-red-600"
                                     onClick={() =>
