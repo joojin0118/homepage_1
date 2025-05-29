@@ -42,7 +42,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertTriangle, Browser, Mail, RefreshCw, Server } from "lucide-react";
+import { AlertTriangle, Monitor, Mail, RefreshCw, Server } from "lucide-react";
 
 // 오류 타입별 메시지 정의
 const getErrorInfo = (reason: string | null) => {
@@ -51,7 +51,7 @@ const getErrorInfo = (reason: string | null) => {
       return {
         title: "브라우저 호환성 문제",
         description: "인증 링크를 다른 브라우저에서 열었습니다.",
-        icon: Browser,
+        icon: Monitor,
         color: "text-blue-600",
         bgColor: "bg-blue-100",
         solutions: [
@@ -148,7 +148,7 @@ function AuthErrorContent() {
         <CardContent className="space-y-6">
           {/* 주요 원인 안내 */}
           <Alert>
-            <Browser className="h-4 w-4" />
+            <Monitor className="h-4 w-4" />
             <AlertDescription>
               <strong>가장 일반적인 원인:</strong> 인증 링크를 다른 브라우저나
               기기에서 열었습니다.
