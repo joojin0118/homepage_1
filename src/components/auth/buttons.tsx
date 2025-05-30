@@ -49,9 +49,11 @@ export function LoginButton() {
 export function SignupButton({
   isPasswordValid,
   isSignupSuccessful,
+  isTermsAgreed,
 }: {
   isPasswordValid: boolean;
   isSignupSuccessful?: boolean;
+  isTermsAgreed?: boolean;
 }) {
   const { pending } = useFormStatus();
 
@@ -59,7 +61,7 @@ export function SignupButton({
     <Button
       type="submit"
       className="w-full h-12 text-lg"
-      disabled={!isPasswordValid || isSignupSuccessful || pending}
+      disabled={!isPasswordValid || !isTermsAgreed || isSignupSuccessful || pending}
     >
       {pending
         ? "처리 중..."
@@ -83,8 +85,8 @@ export function LogoutButton({ className }: { className?: string }) {
 
       // onAuthStateChange 이벤트가 SIGNED_OUT 이벤트를 발생시키므로
       // AuthProvider에서 자동으로 사용자 상태를 업데이트함
-      // 로그인 페이지로 직접 이동
-      router.push("/login");
+      // 홈페이지로 직접 이동
+      router.push("/");
     } catch (error) {
       console.error("로그아웃 중 오류가 발생했습니다:", error);
     } finally {

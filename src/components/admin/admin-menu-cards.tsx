@@ -13,8 +13,12 @@
 import Link from "next/link";
 import { Shield, Package, ShoppingCart, FolderOpen, Users } from "lucide-react";
 
+interface AdminMenuCardsProps {
+  onFileManagementClick?: () => void;
+}
+
 // 관리 메뉴 카드 컴포넌트
-export function AdminMenuCards() {
+export function AdminMenuCards({ onFileManagementClick }: AdminMenuCardsProps) {
   const menuItems = [
     {
       title: "상품 관리",
@@ -36,7 +40,7 @@ export function AdminMenuCards() {
       href: "#file-section",
       icon: FolderOpen,
       color: "bg-purple-500",
-      isAnchor: true,
+      isFileManagement: true,
     },
     {
       title: "사용자 관리",
@@ -47,18 +51,11 @@ export function AdminMenuCards() {
     },
   ];
 
-  // 스무스 스크롤링 함수
-  const handleAnchorClick = (
-    e: React.MouseEvent<HTMLElement>,
-    targetId: string,
-  ) => {
+  // 파일 관리 클릭 핸들러
+  const handleFileManagementClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    const element = document.getElementById(targetId);
-    if (element) {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+    if (onFileManagementClick) {
+      onFileManagementClick();
     }
   };
 
@@ -73,12 +70,12 @@ export function AdminMenuCards() {
         {menuItems.map((item) => {
           const IconComponent = item.icon;
 
-          if (item.isAnchor) {
+          if (item.isFileManagement) {
             return (
               <button
                 key={item.title}
-                onClick={(e) => handleAnchorClick(e, "file-section")}
-                className="group block p-6 bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                onClick={handleFileManagementClick}
+                className="group block p-6 bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full"
               >
                 <div className="flex flex-col items-center text-center space-y-3">
                   <div

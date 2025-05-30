@@ -109,9 +109,14 @@ export default function UserNav() {
 
   if (!user) {
     return (
-      <Link href="/login">
-        <Button>로그인</Button>
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link href="/login">
+          <Button variant="outline" size="sm">로그인</Button>
+        </Link>
+        <Link href="/login?mode=signup">
+          <Button size="sm">회원가입</Button>
+        </Link>
+      </div>
     );
   }
 

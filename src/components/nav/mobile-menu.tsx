@@ -134,9 +134,12 @@ export function MobileMenu() {
               )}
 
               {!user && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-2">
                   <Link href="/login" onClick={() => setOpen(false)}>
-                    <Button className="w-full">로그인</Button>
+                    <Button variant="outline" className="w-full">로그인</Button>
+                  </Link>
+                  <Link href="/login?mode=signup" onClick={() => setOpen(false)}>
+                    <Button className="w-full">회원가입</Button>
                   </Link>
                 </div>
               )}

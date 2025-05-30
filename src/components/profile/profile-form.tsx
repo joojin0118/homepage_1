@@ -203,14 +203,23 @@ export function ProfileForm({
         </div>
 
         {/* 기타 정보 (읽기 전용) */}
-        <div className="bg-muted/20 p-3 sm:p-4 rounded-md">
-          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-            권한
-          </p>
-          <p className="text-base sm:text-lg">
-            {initialProfile.is_admin ? "관리자" : "일반 사용자"}
-          </p>
-        </div>
+        {initialProfile.is_admin ? (
+          // 관리자인 경우 권한 표시
+          <div className="bg-muted/20 p-3 sm:p-4 rounded-md">
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+              권한
+            </p>
+            <p className="text-base sm:text-lg">관리자</p>
+          </div>
+        ) : (
+          // 일반 사용자인 경우 등급 표시
+          <div className="bg-muted/20 p-3 sm:p-4 rounded-md">
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+              등급
+            </p>
+            <p className="text-base sm:text-lg">일반 회원</p>
+          </div>
+        )}
 
         <div className="bg-muted/20 p-3 sm:p-4 rounded-md">
           <p className="text-xs sm:text-sm font-medium text-muted-foreground">

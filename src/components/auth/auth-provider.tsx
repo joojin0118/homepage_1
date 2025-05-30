@@ -156,8 +156,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("[AuthProvider] User signed out");
           setUser(null);
           setError(null);
-          // 로그아웃 시 홈으로 리디렉션 (필요한 경우)
-          if (pathname !== "/" && pathname !== "/login") {
+          // 로그아웃 시 홈으로 리디렉션
+          if (pathname !== "/") {
             router.push("/");
           }
         }

@@ -19,6 +19,21 @@ function getSupabaseHostname() {
 const supabaseHostname = getSupabaseHostname();
 
 const nextConfig: NextConfig = {
+  // turbopack과 Supabase 호환성 설정
+  experimental: {
+    // turbopack에서 서버 컴포넌트 최적화 비활성화
+    serverComponentsExternalPackages: ['@supabase/supabase-js'],
+  },
+  
+  // webpack 설정 (fallback)
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // 서버에서 Supabase 관련 모듈 외부화
+      config.externals.push('@supabase/supabase-js');
+    }
+    return config;
+  },
+
   images: {
     remotePatterns: [
       {

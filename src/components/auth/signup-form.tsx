@@ -46,6 +46,7 @@ import {
   PasswordRequirements,
   isPasswordValid,
 } from "@/components/auth/password-requirements";
+import { TermsAgreement } from "@/components/auth/terms-agreement";
 import { signup } from "@/actions/auth";
 import { AlertTriangle } from "lucide-react";
 
@@ -70,6 +71,7 @@ export function SignupForm({
   const [password, setPassword] = useState("");
   const [isPasswordRequirementsMet, setIsPasswordRequirementsMet] =
     useState(false);
+  const [isTermsAgreed, setIsTermsAgreed] = useState(false);
   const router = useRouter();
   const [signupState, signupAction] = useActionState(signup, initialState);
   const [isSignupSuccessful, setIsSignupSuccessful] = useState(false);
@@ -110,6 +112,11 @@ export function SignupForm({
     signupAction(formData);
   };
 
+  // 약관 동의 상태 변경 핸들러
+  const handleTermsAgreementChange = (agreed: boolean) => {
+    setIsTermsAgreed(agreed);
+  };
+
   return (
     <form action={handleSignupSubmit} className="space-y-4 sm:space-y-6">
       {signupState.error && (
@@ -137,6 +144,12 @@ export function SignupForm({
           있습니다.
         </AlertDescription>
       </Alert>
+
+      {/* 약관 동의 */}
+      <TermsAgreement 
+        isAgreed={isTermsAgreed}
+        onAgreementChange={handleTermsAgreementChange}
+      />
 
       <div className="space-y-2 sm:space-y-3">
         <Label htmlFor="email" className="text-sm sm:text-base">
@@ -189,6 +202,7 @@ export function SignupForm({
       <SignupButton
         isPasswordValid={isPasswordRequirementsMet}
         isSignupSuccessful={isSignupSuccessful}
+        isTermsAgreed={isTermsAgreed}
       />
 
       <div className="relative my-4">

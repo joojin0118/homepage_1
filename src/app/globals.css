@@ -1,3 +1,4 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -114,9 +115,70 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
   }
+
+  /* 프리텐다드 폰트 최적화 스타일 */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Pretendard", sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .text-brand-title {
+    font-family: "Pretendard", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+
+  .text-price {
+    font-family: "Pretendard", sans-serif;
+    font-weight: 600;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .text-product-name {
+    font-family: "Pretendard", sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .text-body {
+    font-family: "Pretendard", sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+}
+
+/* 사이드 배너 애니메이션 */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%) translateY(-50%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) translateY(-50%);
+    opacity: 1;
+  }
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.5s ease-out forwards;
+}
+
+/* 호버 시 살짝 확대 효과 */
+.animate-slideInLeft:hover {
+  transform: translateY(-50%) scale(1.02);
+  transition: transform 0.2s ease-in-out;
+}
+
+/* 3D 그림자 효과 */
+.shadow-3xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 
+              0 20px 25px -5px rgba(0, 0, 0, 0.1),
+              0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }

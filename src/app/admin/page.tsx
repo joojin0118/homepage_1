@@ -22,9 +22,11 @@
  * - @/utils/supabase/server: 서버 컴포넌트용 Supabase 클라이언트
  */
 
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
-import { createServerSupabaseClient } from "@/utils/supabase/server";
+"use client";
+
+import { Suspense, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserSupabaseClient } from "@/utils/supabase/client";
 import { getFileList } from "@/actions/upload";
 import { ProductUploadSection } from "@/components/admin/product-upload-section";
 import { FileListClient } from "@/components/admin/file-list-client";
@@ -43,7 +45,7 @@ async function checkAdminAccess(): Promise<{
   try {
     console.group("🔐 관리자 페이지 권한 확인");
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createBrowserSupabaseClient();
 
     // 현재 사용자 확인
     const {
@@ -118,97 +120,168 @@ function AdminPageHeader({ userName }: { userName: string }) {
   );
 }
 
-// 파일 목록 컨테이너 (서버 컴포넌트)
-async function FileListContainer() {
-  try {
-    console.group("📋 관리자 페이지 파일 목록 로드");
+// 파일 목록 컨테이너 (클라이언트 컴포넌트)
+function FileListContainer() {
+  const [files, setFiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    const result = await getFileList();
+  useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        console.group("📋 관리자 페이지 파일 목록 로드");
+        setLoading(true);
 
-    if (!result.success) {
-      console.log("❌ 파일 목록 조회 실패:", result.error);
-      console.groupEnd();
+        const result = await getFileList();
 
-      return (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            파일 목록을 불러오는 중 오류가 발생했습니다: {result.error}
-          </AlertDescription>
-        </Alert>
-      );
-    }
+        if (!result.success) {
+          console.log("❌ 파일 목록 조회 실패:", result.error);
+          setError(result.error || "파일 목록을 불러올 수 없습니다.");
+          console.groupEnd();
+          return;
+        }
 
-    const files = result.files || [];
-    console.log("✅ 파일 목록 조회 성공:", files.length, "개");
-    console.groupEnd();
+        const fileList = result.files || [];
+        console.log("✅ 파일 목록 조회 성공:", fileList.length, "개");
+        setFiles(fileList);
+        console.groupEnd();
+      } catch (error) {
+        console.error("파일 목록 컨테이너 오류:", error);
+        setError("파일 목록을 불러오는 중 예상치 못한 오류가 발생했습니다.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return <FileListClient initialFiles={files} />;
-  } catch (error) {
-    console.error("파일 목록 컨테이너 오류:", error);
+    loadFiles();
+  }, []);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex items-center space-x-2 text-gray-600">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+          <span>파일 목록을 불러오는 중...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          파일 목록을 불러오는 중 예상치 못한 오류가 발생했습니다.
-        </AlertDescription>
+        <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
   }
+
+  return <FileListClient initialFiles={files} />;
 }
 
 // 메인 관리자 페이지 컴포넌트
-export default async function AdminPage() {
-  console.log("👑 관리자 페이지 렌더링 시작");
+export default function AdminPage() {
+  const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [userName, setUserName] = useState<string>("");
+  const [showFileSection, setShowFileSection] = useState(false);
 
   // 관리자 권한 확인
-  const { isAdmin, userName } = await checkAdminAccess();
+  useEffect(() => {
+    const checkAccess = async () => {
+      console.log("👑 관리자 페이지 렌더링 시작");
 
-  if (!isAdmin) {
-    console.log("❌ 관리자 권한 없음 - 홈으로 리다이렉트");
-    redirect("/");
+      const { isAdmin: adminStatus, userName: name } = await checkAdminAccess();
+
+      if (!adminStatus) {
+        console.log("❌ 관리자 권한 없음 - 홈으로 리다이렉트");
+        router.push("/");
+        return;
+      }
+
+      console.log("✅ 관리자 권한 확인 완료");
+      setIsAdmin(true);
+      setUserName(name || "관리자");
+    };
+
+    checkAccess();
+  }, [router]);
+
+  // 파일 관리 클릭 핸들러
+  const handleFileManagementClick = () => {
+    setShowFileSection(!showFileSection);
+    
+    // 파일 섹션을 표시한 후 스크롤
+    if (!showFileSection) {
+      setTimeout(() => {
+        const element = document.getElementById("file-section");
+        if (element) {
+          element.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+      }, 100);
+    }
+  };
+
+  if (isAdmin === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center space-x-2 text-gray-600">
+          <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+          <span>권한을 확인하는 중...</span>
+        </div>
+      </div>
+    );
   }
 
-  console.log("✅ 관리자 권한 확인 완료");
+  if (!isAdmin) {
+    return null; // 리다이렉트 중이므로 아무것도 렌더링하지 않음
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* 페이지 헤더 */}
-      <AdminPageHeader userName={userName || "관리자"} />
+      <AdminPageHeader userName={userName} />
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           {/* 관리 메뉴 카드 섹션 */}
-          <AdminMenuCards />
+          <AdminMenuCards onFileManagementClick={handleFileManagementClick} />
 
-          {/* 파일 업로드 섹션 */}
-          <ProductUploadSection />
+          {/* 파일 업로드 및 목록 섹션 - 조건부 렌더링 */}
+          {showFileSection && (
+            <>
+              {/* 파일 업로드 섹션 */}
+              <ProductUploadSection />
 
-          {/* 파일 목록 섹션 */}
-          <section id="file-section" className="bg-white rounded-lg border p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <FolderOpen className="h-6 w-6 text-green-600" />
-              <h2 className="text-2xl font-bold text-gray-900">
-                업로드된 파일
-              </h2>
-            </div>
-
-            <Suspense
-              fallback={
-                <div className="flex items-center justify-center py-12">
-                  <div className="flex items-center space-x-2 text-gray-600">
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
-                    <span>파일 목록을 불러오는 중...</span>
-                  </div>
+              {/* 파일 목록 섹션 */}
+              <section id="file-section" className="bg-white rounded-lg border p-6">
+                <div className="flex items-center space-x-3 mb-6">
+                  <FolderOpen className="h-6 w-6 text-green-600" />
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    업로드된 파일
+                  </h2>
                 </div>
-              }
-            >
-              <FileListContainer />
-            </Suspense>
-          </section>
+
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center py-12">
+                      <div className="flex items-center space-x-2 text-gray-600">
+                        <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+                        <span>파일 목록을 불러오는 중...</span>
+                      </div>
+                    </div>
+                  }
+                >
+                  <FileListContainer />
+                </Suspense>
+              </section>
+            </>
+          )}
         </div>
       </main>
     </div>

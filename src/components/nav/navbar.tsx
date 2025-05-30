@@ -15,12 +15,15 @@ import DesktopMenu from "./desktop-menu";
 
 export function Navbar() {
   return (
-    <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-10">
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center py-4 px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <MobileMenu />
-          <Link href="/" className="text-2xl font-bold">
-            Shop Mall
+          <Link href="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">S</span>
+            </div>
+            <span className="text-brand-title text-xl text-gray-900">SHOP</span>
           </Link>
         </div>
 

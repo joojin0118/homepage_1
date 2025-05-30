@@ -44,6 +44,46 @@ import type { Product } from "@/actions/products";
 
 // 홈페이지 헤로 섹션
 function HeroSection() {
+  const { user } = useAuth();
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 추천 상품 데이터 로드 (신상품 + 인기상품)
+  useEffect(() => {
+    const loadFeaturedProducts = async () => {
+      try {
+        setLoading(true);
+        console.log("🌟 추천 상품 로드 중...");
+        
+        // 최신 등록 상품 4개 가져오기 (이미 created_at 내림차순으로 정렬됨)
+        const { products } = await getProducts(1, 4);
+        
+        console.log("🌟 추천 상품 로드 완료:", products.length, "개");
+        setFeaturedProducts(products);
+      } catch (error) {
+        console.error("❌ 추천 상품 로드 실패:", error);
+        // 에러 시 빈 배열로 설정
+        setFeaturedProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFeaturedProducts();
+  }, []);
+
+  // 자동 슬라이드 기능 (상품이 있을 때만)
+  useEffect(() => {
+    if (featuredProducts.length === 0) return;
+
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % featuredProducts.length);
+    }, 5000); // 5초마다 슬라이드 변경 (1초 늦춤)
+
+    return () => clearInterval(interval);
+  }, [featuredProducts.length]);
+
   // 검색 섹션으로 스크롤하는 함수
   const scrollToSearch = () => {
     document.getElementById("search-section")?.scrollIntoView({
@@ -56,37 +96,186 @@ function HeroSection() {
     }, 500);
   };
 
+  // 상품별 배지 생성 함수
+  const getProductBadge = (product: Product, index: number) => {
+    // 최신 상품일수록 "신상품", 오래된 상품은 "인기상품"
+    if (index === 0) return "🔥 HOT";
+    if (index === 1) return "✨ 신상품";
+    if (index === 2) return "💎 베스트";
+    return "🌟 추천";
+  };
+
+  // 상품별 그라데이션 색상
+  const getProductGradient = (index: number) => {
+    const gradients = [
+      "bg-gradient-to-br from-red-500 to-pink-500",
+      "bg-gradient-to-br from-blue-500 to-purple-500",
+      "bg-gradient-to-br from-green-500 to-teal-500",
+      "bg-gradient-to-br from-orange-500 to-yellow-500",
+    ];
+    return gradients[index % gradients.length];
+  };
+
   return (
-    <section className="bg-gradient-to-r from-orange-500 to-pink-500 text-white py-16">
-      <div className="container mx-auto px-4 text-center">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">Shop Mall</h1>
-          <p className="text-xl md:text-2xl mb-8 opacity-90">
-            최고의 상품을 최저 가격으로 만나보세요
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              variant="secondary"
-              className="bg-white text-orange-600 hover:bg-gray-100"
-              onClick={() => {
-                document.getElementById("products-section")?.scrollIntoView({
-                  behavior: "smooth",
-                });
-              }}
-            >
-              <Store className="h-5 w-5 mr-2" />
-              쇼핑 시작하기
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white hover:bg-white hover:text-orange-600"
-              onClick={scrollToSearch}
-            >
-              <Search className="h-5 w-5 mr-2" />
-              상품 검색
-            </Button>
+    <section className="bg-white py-16">
+      <div className="container mx-auto px-4">
+        <div className="grid md:grid-cols-2 gap-8 items-center">
+          <div className="space-y-6">
+            <h1 className="text-brand-title text-4xl md:text-5xl text-gray-900 leading-tight">
+              새로운 스타일을
+              <br />
+              <span className="text-gray-600">발견하세요</span>
+            </h1>
+            <p className="text-body text-lg text-gray-600 leading-relaxed">
+              트렌디하고 품질 좋은 제품들을 합리적인 가격에 만나보세요. 당신만의 특별한 스타일을 완성해드립니다.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3"
+                onClick={() => {
+                  document.getElementById("products-section")?.scrollIntoView({
+                    behavior: "smooth",
+                  });
+                }}
+              >
+                <Store className="h-5 w-5 mr-2" />
+                쇼핑 시작하기
+              </Button>
+              <Button 
+                variant="outline" 
+                className="border-gray-300 text-gray-700 px-8 py-3"
+                onClick={scrollToSearch}
+              >
+                <Search className="h-5 w-5 mr-2" />
+                상품 검색
+              </Button>
+            </div>
+          </div>
+          
+          {/* 실제 상품 슬라이딩 배너 */}
+          <div className="relative">
+            <div className="relative w-full h-96 rounded-2xl overflow-hidden shadow-2xl">
+              {loading ? (
+                // 로딩 상태
+                <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                  <div className="text-center text-gray-600">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-400 border-t-transparent mx-auto mb-4"></div>
+                    <p>추천 상품을 불러오는 중...</p>
+                  </div>
+                </div>
+              ) : featuredProducts.length === 0 ? (
+                // 상품이 없을 때
+                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <Store className="h-16 w-16 mx-auto mb-4" />
+                    <p className="text-lg font-medium">준비된 상품이 없습니다</p>
+                    <p className="text-sm">곧 멋진 상품들을 만나보실 수 있습니다!</p>
+                  </div>
+                </div>
+              ) : (
+                // 실제 상품들
+                featuredProducts.map((product, index) => (
+                  <div
+                    key={product.id}
+                    className={`absolute inset-0 transition-transform duration-500 ease-in-out ${
+                      index === currentSlide 
+                        ? "transform translate-x-0" 
+                        : index < currentSlide 
+                          ? "transform -translate-x-full" 
+                          : "transform translate-x-full"
+                    }`}
+                  >
+                    <div className={`w-full h-full ${getProductGradient(index)} flex flex-col justify-between p-8 text-white relative overflow-hidden`}>
+                      {/* 배경 이미지 (있을 경우) */}
+                      {product.image_url && (
+                        <div 
+                          className="absolute inset-0 bg-cover bg-center opacity-20"
+                          style={{ backgroundImage: `url(${product.image_url})` }}
+                        />
+                      )}
+                      
+                      {/* 오버레이 */}
+                      <div className="absolute inset-0 bg-black/20" />
+                      
+                      {/* 콘텐츠 */}
+                      <div className="relative z-10">
+                        {/* 배지 */}
+                        <div className="flex justify-between items-start">
+                          <span className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
+                            {getProductBadge(product, index)}
+                          </span>
+                          <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                            <Store className="w-8 h-8" />
+                          </div>
+                        </div>
+
+                        {/* 상품 정보 */}
+                        <div className="space-y-4 mt-auto">
+                          <h3 className="text-2xl font-bold leading-tight">
+                            {product.name}
+                          </h3>
+                          <p className="text-white/90 text-sm line-clamp-2">
+                            {product.description || "품질 좋은 상품을 합리적인 가격에 만나보세요"}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-3xl font-bold">
+                              {product.price.toLocaleString()}원
+                            </span>
+                            <Link href={`/products/${product.id}`}>
+                              <Button 
+                                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-white/30 transition-all duration-200"
+                                size="sm"
+                              >
+                                상세보기 →
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 슬라이드 인디케이터 */}
+            {featuredProducts.length > 0 && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                {featuredProducts.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      index === currentSlide 
+                        ? "bg-white" 
+                        : "bg-white/50"
+                    }`}
+                    onClick={() => setCurrentSlide(index)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* 좌우 네비게이션 버튼 */}
+            {featuredProducts.length > 1 && (
+              <>
+                <button
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                  onClick={() => setCurrentSlide((prev) => 
+                    prev === 0 ? featuredProducts.length - 1 : prev - 1
+                  )}
+                >
+                  ←
+                </button>
+                <button
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                  onClick={() => setCurrentSlide((prev) => 
+                    (prev + 1) % featuredProducts.length
+                  )}
+                >
+                  →
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -133,12 +322,12 @@ function AdminLinkSection() {
   }
 
   return (
-    <section className="bg-blue-50 border-t">
+    <section className="bg-gray-50 border-t border-gray-200">
       <div className="container mx-auto px-4 py-6">
-        <div className="flex items-center justify-between bg-white rounded-lg border p-4 shadow-sm">
+        <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Shield className="h-5 w-5 text-blue-600" />
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <Shield className="h-5 w-5 text-gray-600" />
             </div>
             <div>
               <h3 className="font-medium text-gray-900">관리자 메뉴</h3>
@@ -150,7 +339,7 @@ function AdminLinkSection() {
 
           <div className="flex space-x-2">
             <Link href="/admin">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="border-gray-300 text-gray-700">
                 <Settings className="h-4 w-4 mr-2" />
                 관리자 페이지
               </Button>
@@ -177,12 +366,15 @@ function SearchSection({
   isLoading,
 }: SearchSectionProps) {
   return (
-    <section id="search-section" className="py-8 bg-gray-50">
+    <section id="search-section" className="py-16 bg-gray-50">
       <div className="container mx-auto px-4">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
             원하는 상품을 찾아보세요
           </h2>
+          <p className="text-gray-600 mb-8">
+            상품명 또는 설명으로 검색하여 원하는 제품을 쉽게 찾아보세요
+          </p>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
@@ -191,7 +383,7 @@ function SearchSection({
               placeholder="상품명 또는 설명으로 검색해보세요..."
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-12 pr-12 py-4 text-lg border-2 border-gray-200 focus:border-orange-500 rounded-lg"
+              className="pl-12 pr-12 py-4 text-lg border border-gray-200 focus:border-gray-900 rounded-lg bg-white"
               disabled={isLoading}
             />
             {searchTerm && (
@@ -228,19 +420,19 @@ function CategoryFilter({
   onCategoryChange,
 }: CategoryFilterProps) {
   return (
-    <div className="mb-8">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">카테고리</h3>
-      <div className="flex flex-wrap gap-2">
+    <div className="mb-12">
+      <h3 className="text-xl font-semibold text-gray-900 mb-6">카테고리</h3>
+      <div className="flex flex-wrap gap-3">
         {PRODUCT_CATEGORIES.map((category) => (
           <Badge
             key={category.value}
             variant={
               selectedCategory === category.value ? "default" : "outline"
             }
-            className={`cursor-pointer transition-colors ${
+            className={`cursor-pointer transition-colors px-4 py-2 text-sm ${
               selectedCategory === category.value
-                ? "bg-orange-500 hover:bg-orange-600"
-                : "hover:bg-gray-100"
+                ? "bg-gray-900 text-white hover:bg-gray-800"
+                : "border-gray-300 text-gray-700 hover:bg-gray-100"
             }`}
             onClick={() => onCategoryChange(category.value)}
           >
@@ -279,16 +471,16 @@ function ProductSectionHeader({
     }
 
     if (selectedCategory === "all") {
-      return "전체 상품";
+      return "인기 상품";
     }
 
     return categoryLabel;
   };
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-12">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">{getTitle()}</h2>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">{getTitle()}</h2>
         <p className="text-gray-600">
           {totalCount > 0
             ? `${totalCount}개의 상품`
@@ -299,7 +491,7 @@ function ProductSectionHeader({
       </div>
 
       <div className="flex gap-2 mt-4 sm:mt-0">
-        <Button variant="outline" size="sm" onClick={onSortChange}>
+        <Button variant="outline" size="sm" className="border-gray-300 text-gray-700" onClick={onSortChange}>
           <ArrowUpDown className="h-4 w-4 mr-2" />
           정렬
         </Button>
@@ -454,8 +646,14 @@ export function HomePageClient() {
       {/* 헤로 섹션 */}
       <HeroSection />
 
+      {/* 구분선 */}
+      <div className="border-t border-gray-200"></div>
+
       {/* 관리자 링크 섹션 */}
       <AdminLinkSection />
+
+      {/* 구분선 */}
+      <div className="border-t border-gray-200"></div>
 
       {/* 검색 섹션 */}
       <SearchSection
@@ -465,8 +663,11 @@ export function HomePageClient() {
         isLoading={loading}
       />
 
+      {/* 구분선 */}
+      <div className="border-t border-gray-200"></div>
+
       {/* 상품 목록 섹션 */}
-      <section id="products-section" className="py-12">
+      <section id="products-section" className="py-16 bg-white">
         <div className="container mx-auto px-4">
           {/* 카테고리 필터 */}
           <CategoryFilter

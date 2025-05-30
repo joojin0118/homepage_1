@@ -42,6 +42,8 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { QueryProvider } from "@/components/providers/query-client-provider";
 import { OrderProvider } from "@/components/order/order-context";
 import { AnalyticsProvider } from "@/components/analytics/analytics-provider";
+import { SignupSideBanner } from "@/components/ui/signup-side-banner";
+import { createMetadata } from "@/utils/seo/metadata";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -60,87 +62,10 @@ export const viewport: Viewport = {
   themeColor: "#171717",
 };
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.url),
-  title: {
-    default: siteConfig.name,
-    template: `%s | ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-  keywords: siteConfig.keywords,
-  authors: [{ name: "Aiden Ahn" }],
-  creator: "Aiden Ahn",
-  publisher: "demodev",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1,
-    },
-  },
-  openGraph: {
-    type: "website",
-    locale: siteConfig.locale,
-    url: siteConfig.url,
-    title: siteConfig.name,
-    description: siteConfig.description,
-    siteName: siteConfig.name,
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: siteConfig.name,
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: siteConfig.name,
-    description: siteConfig.description,
-    images: [siteConfig.ogImage],
-    creator: siteConfig.twitterHandle,
-  },
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icons/icon-192x192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icons/icon-256x256.png", type: "image/png", sizes: "256x256" },
-      { url: "/icons/icon-384x384.png", type: "image/png", sizes: "384x384" },
-      { url: "/icons/icon-512x512.png", type: "image/png", sizes: "512x512" },
-    ],
-    shortcut: "/favicon.ico",
-    apple: [
-      {
-        url: "/icons/icon-192x192.png",
-        sizes: "192x192",
-        rel: "apple-touch-icon",
-      },
-      {
-        url: "/icons/icon-512x512.png",
-        sizes: "512x512",
-        rel: "apple-touch-icon",
-      },
-    ],
-    other: [
-      {
-        rel: "manifest",
-        url: "/manifest.webmanifest",
-      },
-    ],
-  },
-  alternates: {
-    canonical: siteConfig.url,
-    languages: {
-      "ko-KR": siteConfig.url,
-      // "en-US": `${siteConfig.url}/en`,
-    },
-  },
-};
+export const metadata: Metadata = createMetadata({
+  title: "Next.js + Supabase",
+  description: "Next.js와 Supabase로 구축된 현대적인 웹 애플리케이션",
+});
 
 export default function RootLayout({
   children,
@@ -162,6 +87,7 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
+                <SignupSideBanner />
                 {children}
               </ThemeProvider>
             </OrderProvider>

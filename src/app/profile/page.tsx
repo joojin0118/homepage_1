@@ -80,19 +80,21 @@ export default async function Profile() {
             <h1 className="text-2xl sm:text-3xl font-bold">프로필</h1>
           </div>
 
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              프로필 정보를 불러올 수 없습니다: {profileError}
-            </AlertDescription>
-          </Alert>
+          <div className="max-w-2xl mx-auto">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                프로필 정보를 불러올 수 없습니다: {profileError}
+              </AlertDescription>
+            </Alert>
 
-          <div className="mt-6 text-center sm:text-left">
-            <Link href="/">
-              <Button variant="outline" className="w-full sm:w-auto">
-                홈으로 돌아가기
-              </Button>
-            </Link>
+            <div className="mt-6 text-center">
+              <Link href="/">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  홈으로 돌아가기
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -110,7 +112,7 @@ export default async function Profile() {
           <h1 className="text-2xl sm:text-3xl font-bold">프로필</h1>
         </div>
 
-        <div className="grid gap-6 max-w-2xl">
+        <div className="grid gap-6 max-w-2xl mx-auto">
           {/* 프로필 정보 및 수정 폼 */}
           <ProfileForm initialProfile={profile} />
 
@@ -133,17 +135,20 @@ export default async function Profile() {
                 <p className="text-base sm:text-lg truncate">{user.email}</p>
               </div>
 
-              <div className="bg-muted/20 p-3 sm:p-4 rounded-md">
-                <div className="flex items-center gap-2 mb-1">
-                  <Hash className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                    사용자 ID
+              {/* 관리자인 경우에만 사용자 ID 표시 */}
+              {profile.is_admin && (
+                <div className="bg-muted/20 p-3 sm:p-4 rounded-md">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Hash className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                      사용자 ID
+                    </p>
+                  </div>
+                  <p className="text-base sm:text-lg truncate font-mono text-sm">
+                    {user.id}
                   </p>
                 </div>
-                <p className="text-base sm:text-lg truncate font-mono text-sm">
-                  {user.id}
-                </p>
-              </div>
+              )}
 
               <div className="bg-muted/20 p-3 sm:p-4 rounded-md">
                 <div className="flex items-center gap-2 mb-1">
@@ -160,7 +165,7 @@ export default async function Profile() {
           </Card>
         </div>
 
-        <div className="mt-6 text-center sm:text-left">
+        <div className="mt-6 text-center">
           <Link href="/">
             <Button variant="outline" className="w-full sm:w-auto">
               홈으로 돌아가기
