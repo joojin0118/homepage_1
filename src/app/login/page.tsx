@@ -32,7 +32,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -46,7 +46,8 @@ import {
 import { LoginForm } from "@/components/auth/login-form";
 import { SignupForm } from "@/components/auth/signup-form";
 
-export default function LoginPage() {
+// 클라이언트 컴포넌트 (useSearchParams 사용)
+function LoginPageClient() {
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -109,5 +110,47 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+// 로딩 상태 컴포넌트
+function LoginPageLoading() {
+  return (
+    <div className="flex items-center justify-center min-h-screen p-4 sm:p-12 bg-muted/10">
+      <Card className="w-full max-w-screen-sm shadow-md">
+        <CardHeader className="pb-4 sm:pb-6">
+          <CardTitle className="text-2xl sm:text-3xl text-center">
+            로그인
+          </CardTitle>
+          <CardDescription className="text-center text-base sm:text-lg">
+            로딩 중...
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <div className="space-y-4">
+            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-center py-4 px-4 sm:px-6">
+          <Link
+            href="/"
+            className="text-sm sm:text-base text-muted-foreground hover:text-primary transition-colors"
+          >
+            홈으로 돌아가기
+          </Link>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
+
+// 기본 export - Suspense로 감싸기
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageLoading />}>
+      <LoginPageClient />
+    </Suspense>
   );
 }

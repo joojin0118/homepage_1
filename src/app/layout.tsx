@@ -37,7 +37,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
-import { siteConfig } from "@/utils/seo/constants";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { QueryProvider } from "@/components/providers/query-client-provider";
 import { OrderProvider } from "@/components/order/order-context";

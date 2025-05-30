@@ -20,7 +20,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getOrdersForAdmin, updateOrderStatus } from "@/actions/orders";
+import { getOrdersWithProfiles, updateOrderStatus } from "@/actions/orders";
 import type { OrderWithItems } from "@/actions/orders";
 import { Navbar } from "@/components/nav/navbar";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-provider";
+
+// 페이지당 주문 수
+const ORDERS_PER_PAGE = 10;
 
 // 주문 상태 설정
 const ORDER_STATUSES = [
@@ -316,6 +319,7 @@ function AdminOrdersPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(
@@ -335,63 +339,58 @@ function AdminOrdersPageClient() {
 
   // 주문 목록 조회
   const fetchOrders = useCallback(
-    async (searchQuery?: string) => {
+    async (search?: string) => {
+      if (!user) return;
+
       try {
         setIsLoading(true);
         setError(null);
 
-        const currentSearchTerm = searchQuery ?? searchTerm;
-
-        console.log("📦 관리자 주문 목록 조회", {
+        console.log("📦 주문 조회 시작:", {
           page: currentPage,
           status: filterStatus,
-          search: currentSearchTerm,
+          search: search || searchTerm,
         });
 
-        const result = await getOrdersForAdmin(currentPage, 10);
+        const result = await getOrdersWithProfiles(
+          currentPage,
+          ORDERS_PER_PAGE,
+          filterStatus,
+          search || searchTerm,
+        );
 
-        // 필터링 적용
-        let filteredOrders = result.orders;
-        if (filterStatus) {
-          filteredOrders = result.orders.filter(
-            (o) => o.status === filterStatus,
+        if (result.success) {
+          setOrders(result.orders || []);
+          setTotalCount(result.totalCount || 0);
+          setTotalPages(
+            Math.max(1, Math.ceil((result.totalCount || 0) / ORDERS_PER_PAGE)),
           );
-        }
-
-        // 검색어 필터링 (주문 ID나 사용자명)
-        if (currentSearchTerm) {
-          filteredOrders = filteredOrders.filter(
-            (o) =>
-              o.id.toString().includes(currentSearchTerm) ||
-              o.user_id.includes(currentSearchTerm) ||
-              (o.profiles?.name &&
-                o.profiles.name
-                  .toLowerCase()
-                  .includes(currentSearchTerm.toLowerCase())),
+          console.log("✅ 주문 조회 완료:", result.orders?.length || 0, "개");
+        } else {
+          setError(
+            "error" in result
+              ? result.error
+              : "주문을 불러오는데 실패했습니다.",
           );
+          setOrders([]);
+          setTotalCount(0);
+          setTotalPages(1);
         }
-
-        setOrders(filteredOrders);
-        setTotalPages(result.totalPages);
-
-        console.log("📦 주문 조회 완료:", {
-          전체주문: result.orders.length,
-          필터링된주문: filteredOrders.length,
-          페이지: currentPage,
-          총페이지: result.totalPages,
-        });
       } catch (error) {
         console.error("주문 조회 실패:", error);
         const errorMessage =
           error instanceof Error
             ? error.message
-            : "주문 목록 조회 중 오류가 발생했습니다.";
+            : "주문을 조회하는 중 오류가 발생했습니다.";
         setError(errorMessage);
+        setOrders([]);
+        setTotalCount(0);
+        setTotalPages(1);
       } finally {
         setIsLoading(false);
       }
     },
-    [currentPage, filterStatus],
+    [currentPage, filterStatus, searchTerm, user],
   );
 
   // 페이지 및 필터 변경 시 주문 조회
@@ -399,7 +398,7 @@ function AdminOrdersPageClient() {
     if (!authLoading && user) {
       fetchOrders();
     }
-  }, [currentPage, filterStatus, authLoading, user, fetchOrders]);
+  }, [authLoading, user, fetchOrders]);
 
   // 검색어 변경 시 디바운스 처리
   useEffect(() => {
@@ -410,7 +409,7 @@ function AdminOrdersPageClient() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, authLoading, user, isLoading, fetchOrders]);
 
   // 주문 상태 변경 처리
   const handleStatusUpdate = async (orderId: number, newStatus: string) => {
@@ -593,7 +592,9 @@ function AdminOrdersPageClient() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>주문 목록 ({orders.length}개)</CardTitle>
+                  <CardTitle>
+                    주문 목록 (총 {totalCount}개 중 {orders.length}개 표시)
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="border rounded-lg">

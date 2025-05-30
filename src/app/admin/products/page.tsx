@@ -74,6 +74,9 @@ import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-provider";
 
+// 페이지당 상품 수
+const PRODUCTS_PER_PAGE = 10;
+
 // 상품 목록 스켈레톤
 function ProductTableSkeleton() {
   return (
@@ -171,6 +174,7 @@ function AdminProductsPageClient() {
   const [adjustingStock, setAdjustingStock] = useState<Record<number, boolean>>(
     {},
   );
+  const [totalCount, setTotalCount] = useState(0);
 
   console.log("🔧 관리자 상품 관리 페이지 렌더링");
 
@@ -184,62 +188,48 @@ function AdminProductsPageClient() {
 
   // 상품 목록 조회
   const fetchProducts = useCallback(
-    async (searchQuery?: string) => {
+    async (search?: string) => {
+      if (!user) return;
+
       try {
         setIsLoading(true);
         setError(null);
 
-        const currentSearchTerm = searchQuery ?? searchTerm;
-
-        console.log("📦 관리자 상품 목록 조회", {
+        console.log("📦 상품 조회 시작:", {
           page: currentPage,
-          filter: filterType,
-          search: currentSearchTerm,
+          category: filterType,
+          search: search || searchTerm,
         });
 
-        const result = await getProducts(currentPage, 10);
+        const result = await getProducts(
+          currentPage,
+          PRODUCTS_PER_PAGE,
+          filterType,
+          search || searchTerm,
+        );
 
-        // 필터링 적용
-        let filteredProducts = result.products;
-        if (filterType === "low_stock") {
-          filteredProducts = result.products.filter(
-            (p) => p.stock_quantity <= 5,
-          );
-        }
+        setProducts(result.products);
+        setTotalCount(result.totalCount);
+        setTotalPages(
+          Math.max(1, Math.ceil(result.totalCount / PRODUCTS_PER_PAGE)),
+        );
 
-        // 검색어 필터링
-        if (currentSearchTerm) {
-          filteredProducts = filteredProducts.filter(
-            (p) =>
-              p.name.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
-              (p.description &&
-                p.description
-                  .toLowerCase()
-                  .includes(currentSearchTerm.toLowerCase())),
-          );
-        }
-
-        setProducts(filteredProducts);
-        setTotalPages(result.totalPages);
-
-        console.log("📦 상품 조회 완료:", {
-          전체상품: result.products.length,
-          필터링된상품: filteredProducts.length,
-          페이지: currentPage,
-          총페이지: result.totalPages,
-        });
+        console.log("✅ 상품 조회 완료:", result.products.length, "개");
       } catch (error) {
         console.error("상품 조회 실패:", error);
         const errorMessage =
           error instanceof Error
             ? error.message
-            : "상품 목록 조회 중 오류가 발생했습니다.";
+            : "상품을 조회하는 중 오류가 발생했습니다.";
         setError(errorMessage);
+        setProducts([]);
+        setTotalCount(0);
+        setTotalPages(1);
       } finally {
         setIsLoading(false);
       }
     },
-    [currentPage, filterType],
+    [currentPage, filterType, searchTerm, user],
   );
 
   // 페이지 및 필터 변경 시 상품 조회
@@ -258,7 +248,7 @@ function AdminProductsPageClient() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, authLoading, user, isLoading, fetchProducts]);
 
   // 상품 삭제
   const handleDeleteProduct = async () => {
@@ -508,7 +498,9 @@ function AdminProductsPageClient() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>상품 목록 ({products.length}개)</CardTitle>
+                  <CardTitle>
+                    상품 목록 (총 {totalCount}개 중 {products.length}개 표시)
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="border rounded-lg">

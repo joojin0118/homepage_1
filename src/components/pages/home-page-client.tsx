@@ -26,7 +26,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/components/auth/auth-provider";
 import { useAddToCart } from "@/hooks/use-cart";
 import { PRODUCT_CATEGORIES, getCategoryLabel } from "@/constants/categories";
 import {
@@ -41,10 +40,10 @@ import {
 } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/utils/supabase/client";
 import type { Product } from "@/actions/products";
+import { useAuth } from "@/components/auth/auth-provider";
 
 // 홈페이지 헤로 섹션
 function HeroSection() {
-  const { user } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,10 +54,10 @@ function HeroSection() {
       try {
         setLoading(true);
         console.log("🌟 추천 상품 로드 중...");
-        
+
         // 최신 등록 상품 4개 가져오기 (이미 created_at 내림차순으로 정렬됨)
         const { products } = await getProducts(1, 4);
-        
+
         console.log("🌟 추천 상품 로드 완료:", products.length, "개");
         setFeaturedProducts(products);
       } catch (error) {
@@ -127,10 +126,11 @@ function HeroSection() {
               <span className="text-gray-600">발견하세요</span>
             </h1>
             <p className="text-body text-lg text-gray-600 leading-relaxed">
-              트렌디하고 품질 좋은 제품들을 합리적인 가격에 만나보세요. 당신만의 특별한 스타일을 완성해드립니다.
+              트렌디하고 품질 좋은 제품들을 합리적인 가격에 만나보세요. 당신만의
+              특별한 스타일을 완성해드립니다.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
+              <Button
                 className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3"
                 onClick={() => {
                   document.getElementById("products-section")?.scrollIntoView({
@@ -141,8 +141,8 @@ function HeroSection() {
                 <Store className="h-5 w-5 mr-2" />
                 쇼핑 시작하기
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="border-gray-300 text-gray-700 px-8 py-3"
                 onClick={scrollToSearch}
               >
@@ -151,7 +151,7 @@ function HeroSection() {
               </Button>
             </div>
           </div>
-          
+
           {/* 실제 상품 슬라이딩 배너 */}
           <div className="relative">
             <div className="relative w-full h-96 rounded-2xl overflow-hidden shadow-2xl">
@@ -168,8 +168,12 @@ function HeroSection() {
                 <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                   <div className="text-center text-gray-500">
                     <Store className="h-16 w-16 mx-auto mb-4" />
-                    <p className="text-lg font-medium">준비된 상품이 없습니다</p>
-                    <p className="text-sm">곧 멋진 상품들을 만나보실 수 있습니다!</p>
+                    <p className="text-lg font-medium">
+                      준비된 상품이 없습니다
+                    </p>
+                    <p className="text-sm">
+                      곧 멋진 상품들을 만나보실 수 있습니다!
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -178,25 +182,29 @@ function HeroSection() {
                   <div
                     key={product.id}
                     className={`absolute inset-0 transition-transform duration-500 ease-in-out ${
-                      index === currentSlide 
-                        ? "transform translate-x-0" 
-                        : index < currentSlide 
-                          ? "transform -translate-x-full" 
+                      index === currentSlide
+                        ? "transform translate-x-0"
+                        : index < currentSlide
+                          ? "transform -translate-x-full"
                           : "transform translate-x-full"
                     }`}
                   >
-                    <div className={`w-full h-full ${getProductGradient(index)} flex flex-col justify-between p-8 text-white relative overflow-hidden`}>
+                    <div
+                      className={`w-full h-full ${getProductGradient(index)} flex flex-col justify-between p-8 text-white relative overflow-hidden`}
+                    >
                       {/* 배경 이미지 (있을 경우) */}
                       {product.image_url && (
-                        <div 
+                        <div
                           className="absolute inset-0 bg-cover bg-center opacity-20"
-                          style={{ backgroundImage: `url(${product.image_url})` }}
+                          style={{
+                            backgroundImage: `url(${product.image_url})`,
+                          }}
                         />
                       )}
-                      
+
                       {/* 오버레이 */}
                       <div className="absolute inset-0 bg-black/20" />
-                      
+
                       {/* 콘텐츠 */}
                       <div className="relative z-10">
                         {/* 배지 */}
@@ -215,14 +223,15 @@ function HeroSection() {
                             {product.name}
                           </h3>
                           <p className="text-white/90 text-sm line-clamp-2">
-                            {product.description || "품질 좋은 상품을 합리적인 가격에 만나보세요"}
+                            {product.description ||
+                              "품질 좋은 상품을 합리적인 가격에 만나보세요"}
                           </p>
                           <div className="flex items-center justify-between">
                             <span className="text-3xl font-bold">
                               {product.price.toLocaleString()}원
                             </span>
                             <Link href={`/products/${product.id}`}>
-                              <Button 
+                              <Button
                                 className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-white/30 transition-all duration-200"
                                 size="sm"
                               >
@@ -245,9 +254,7 @@ function HeroSection() {
                   <button
                     key={index}
                     className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                      index === currentSlide 
-                        ? "bg-white" 
-                        : "bg-white/50"
+                      index === currentSlide ? "bg-white" : "bg-white/50"
                     }`}
                     onClick={() => setCurrentSlide(index)}
                   />
@@ -260,17 +267,21 @@ function HeroSection() {
               <>
                 <button
                   className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-                  onClick={() => setCurrentSlide((prev) => 
-                    prev === 0 ? featuredProducts.length - 1 : prev - 1
-                  )}
+                  onClick={() =>
+                    setCurrentSlide((prev) =>
+                      prev === 0 ? featuredProducts.length - 1 : prev - 1,
+                    )
+                  }
                 >
                   ←
                 </button>
                 <button
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-                  onClick={() => setCurrentSlide((prev) => 
-                    (prev + 1) % featuredProducts.length
-                  )}
+                  onClick={() =>
+                    setCurrentSlide(
+                      (prev) => (prev + 1) % featuredProducts.length,
+                    )
+                  }
                 >
                   →
                 </button>
@@ -339,7 +350,11 @@ function AdminLinkSection() {
 
           <div className="flex space-x-2">
             <Link href="/admin">
-              <Button variant="outline" size="sm" className="border-gray-300 text-gray-700">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-gray-300 text-gray-700"
+              >
                 <Settings className="h-4 w-4 mr-2" />
                 관리자 페이지
               </Button>
@@ -491,7 +506,12 @@ function ProductSectionHeader({
       </div>
 
       <div className="flex gap-2 mt-4 sm:mt-0">
-        <Button variant="outline" size="sm" className="border-gray-300 text-gray-700" onClick={onSortChange}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-gray-300 text-gray-700"
+          onClick={onSortChange}
+        >
           <ArrowUpDown className="h-4 w-4 mr-2" />
           정렬
         </Button>

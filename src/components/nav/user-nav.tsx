@@ -100,7 +100,7 @@ export default function UserNav() {
       });
       setIsAdmin(false);
     }
-  }, [user?.id, supabase]); // user.id만 의존성으로 사용
+  }, [user, supabase]); // user 전체를 의존성으로 추가
 
   // 관리자 권한 확인
   useEffect(() => {
@@ -111,7 +111,9 @@ export default function UserNav() {
     return (
       <div className="flex items-center gap-2">
         <Link href="/login">
-          <Button variant="outline" size="sm">로그인</Button>
+          <Button variant="outline" size="sm">
+            로그인
+          </Button>
         </Link>
         <Link href="/login?mode=signup">
           <Button size="sm">회원가입</Button>

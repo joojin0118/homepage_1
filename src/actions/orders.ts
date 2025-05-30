@@ -74,6 +74,20 @@ export type OrderWithItems = Order & {
   }>;
 };
 
+// 관리자 주문 조회 결과 타입
+type OrdersWithProfilesResult =
+  | {
+      success: true;
+      orders: (OrderWithItems & { profiles: { name: string | null } | null })[];
+      totalCount: number;
+      currentPage: number;
+      totalPages: number;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
 /**
  * 주문 생성 (장바구니에서 주문으로 변환 또는 바로 구매)
  */
@@ -730,6 +744,178 @@ export async function getOrdersForAdmin(page: number = 1, limit: number = 20) {
     console.error("관리자 주문 조회 오류:", error);
     console.groupEnd();
     throw error;
+  }
+}
+
+/**
+ * 관리자용 프로필 포함 주문 조회 (검색 및 필터 지원)
+ */
+export async function getOrdersWithProfiles(
+  page: number = 1,
+  limit: number = 20,
+  statusFilter?: string,
+  searchTerm?: string,
+): Promise<OrdersWithProfilesResult> {
+  console.group("📦 관리자 주문 조회 (프로필 포함)");
+  console.log(
+    "페이지:",
+    page,
+    "제한:",
+    limit,
+    "상태 필터:",
+    statusFilter,
+    "검색어:",
+    searchTerm,
+  );
+
+  try {
+    const supabase = await createServerSupabaseClient();
+
+    // 현재 사용자 확인 및 관리자 권한 체크
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("인증 실패:", authError);
+      console.groupEnd();
+      return { success: false, error: "로그인이 필요합니다" };
+    }
+
+    // 관리자 권한 확인
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile || !profile.is_admin) {
+      console.error("관리자 권한 없음:", profileError);
+      console.groupEnd();
+      return { success: false, error: "관리자 권한이 필요합니다" };
+    }
+
+    const offset = (page - 1) * limit;
+
+    // 쿼리 빌더 생성
+    let query = supabase.from("orders").select(
+      `
+        id,
+        user_id,
+        status,
+        total_amount,
+        created_at,
+        customer_name,
+        customer_phone,
+        customer_address,
+        profiles(
+          name
+        ),
+        order_items(
+          id,
+          product_id,
+          quantity,
+          price_at_time,
+          product:products(
+            id,
+            name,
+            image_url
+          )
+        )
+      `,
+    );
+
+    // 상태 필터 적용
+    if (statusFilter && statusFilter !== "") {
+      query = query.eq("status", statusFilter);
+    }
+
+    // 검색 필터 적용 (주문 ID 또는 사용자 이름으로 검색)
+    if (searchTerm && searchTerm.trim() !== "") {
+      const searchTermTrimmed = searchTerm.trim();
+      // 숫자인 경우 주문 ID로 검색, 그 외에는 고객명으로 검색
+      if (/^\d+$/.test(searchTermTrimmed)) {
+        query = query.eq("id", parseInt(searchTermTrimmed));
+      } else {
+        query = query.ilike("customer_name", `%${searchTermTrimmed}%`);
+      }
+    }
+
+    // 정렬 및 페이지네이션 적용
+    const { data: orders, error } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("관리자 주문 조회 실패:", error);
+      console.groupEnd();
+      return { success: false, error: "주문 조회 중 오류가 발생했습니다" };
+    }
+
+    // 전체 주문 수 조회 (같은 필터 조건 적용)
+    let countQuery = supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true });
+
+    if (statusFilter && statusFilter !== "") {
+      countQuery = countQuery.eq("status", statusFilter);
+    }
+
+    if (searchTerm && searchTerm.trim() !== "") {
+      const searchTermTrimmed = searchTerm.trim();
+      if (/^\d+$/.test(searchTermTrimmed)) {
+        countQuery = countQuery.eq("id", parseInt(searchTermTrimmed));
+      } else {
+        countQuery = countQuery.ilike(
+          "customer_name",
+          `%${searchTermTrimmed}%`,
+        );
+      }
+    }
+
+    const { count, error: countError } = await countQuery;
+
+    if (countError) {
+      console.error("주문 수 조회 실패:", countError);
+      console.groupEnd();
+      return { success: false, error: "주문 수 조회 중 오류가 발생했습니다" };
+    }
+
+    const result = {
+      success: true as const,
+      orders:
+        (orders?.map((order) => ({
+          ...order,
+          profiles: Array.isArray(order.profiles)
+            ? order.profiles[0]
+            : order.profiles,
+          order_items: order.order_items?.map((item) => ({
+            ...item,
+            product: Array.isArray(item.product)
+              ? item.product[0]
+              : item.product,
+          })),
+        })) as (OrderWithItems & {
+          profiles: { name: string | null } | null;
+        })[]) || [],
+      totalCount: count || 0,
+      currentPage: page,
+      totalPages: Math.ceil((count || 0) / limit),
+    };
+
+    console.log("관리자 주문 조회 완료:", {
+      주문수: orders?.length || 0,
+      전체수: count,
+      페이지: page,
+    });
+    console.groupEnd();
+
+    return result;
+  } catch (error) {
+    console.error("관리자 주문 조회 오류:", error);
+    console.groupEnd();
+    return { success: false, error: "주문 조회 중 오류가 발생했습니다" };
   }
 }
 
