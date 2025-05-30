@@ -19,18 +19,45 @@ function getSupabaseHostname() {
 const supabaseHostname = getSupabaseHostname();
 
 const nextConfig: NextConfig = {
-  // turbopack과 Supabase 호환성 설정
+  // Next.js 15에서 serverExternalPackages로 이동
+  serverExternalPackages: ['@supabase/supabase-js', '@supabase/ssr'],
+  
+  // Experimental 설정 (추가적인 호환성을 위해)
   experimental: {
-    // turbopack에서 서버 컴포넌트 최적화 비활성화
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
+    // Server Actions 관련 설정
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
   },
   
-  // webpack 설정 (fallback)
-  webpack: (config, { isServer }) => {
+  // webpack 설정 개선
+  webpack: (config, { isServer, nextRuntime }) => {
+    // Edge Runtime(미들웨어)에서는 Node.js API 사용 불가
+    if (nextRuntime === 'edge') {
+      // Edge Runtime에서는 Node.js 전용 패키지를 externals에서 제외
+      return config;
+    }
+    
     if (isServer) {
       // 서버에서 Supabase 관련 모듈 외부화
-      config.externals.push('@supabase/supabase-js');
+      const externals = ['@supabase/supabase-js', '@supabase/ssr'];
+      
+      if (Array.isArray(config.externals)) {
+        config.externals.push(...externals);
+      } else if (typeof config.externals === 'function') {
+        const originalExternals = config.externals;
+        config.externals = async (params) => {
+          const result = await originalExternals(params);
+          if (externals.includes(params.request)) {
+            return params.request;
+          }
+          return result;
+        };
+      } else {
+        config.externals = externals;
+      }
     }
+    
     return config;
   },
 
